@@ -13,7 +13,6 @@ import unicodedata
 
 from config import PROJECT_DIR
 
-
 class FeverDocDB:
     """Sqlite backed document storage."""
 

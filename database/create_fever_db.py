@@ -9,7 +9,7 @@ from database.db_retriever import FeverDocDB
 from reader import JSONLineReader
 
 CREATE_DOCUMENTS = """
-CREATE TABLE documents (
+CREATE TABLE IF NOT EXISTS documents (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     document_id VARCHAR,
     text TEXT,
