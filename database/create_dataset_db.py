@@ -6,7 +6,7 @@ from config import PROJECT_DIR
 from database.db_retriever import FeverDocDB
 from reader import JSONLineReader
 
-CREATE_DOCUMENTS = """
+CREATE_DEF_DATASET = """
 CREATE TABLE IF NOT EXISTS def_dataset (
     id INTEGER,
     verifiable VARCHAR,
@@ -28,7 +28,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 with FeverDocDB() as db:
-    db.write(CREATE_DOCUMENTS)
+    db.write(CREATE_DEF_DATASET)
 
 train_file_path = PROJECT_DIR.joinpath("dataset/def_train.jsonl")
 dev_file_path = PROJECT_DIR.joinpath("dataset/def_dev.jsonl")
