@@ -12,8 +12,8 @@ from models.evidence_selection_model import EvidenceSelectionModel
 import torch.nn.functional as F
 
 
-dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id,docs.lines, 
-                                         group_concat(dd.evidence_sentence_id) as evidence_lines
+dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id, docs.text, 
+                                         docs.lines, group_concat(dd.evidence_sentence_id) as evidence_lines
                                   from def_dataset dd
                                     join documents docs on docs.document_id = dd.evidence_wiki_url
                                   where set_type='train'

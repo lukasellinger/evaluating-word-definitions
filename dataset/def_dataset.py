@@ -49,13 +49,20 @@ class DefinitionDataset(Dataset):
         self.mode = mode
         self.tokenizer = tokenizer
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.data = data
+        self.data = self.process_data(data)
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
         return self.data[idx]
+
+    def process_data(self, data):
+        def filter_txt_length(text):
+            text = process_sentence(text)
+            return len(' '.join(text).split()) < 2000
+
+        return data.filter(lambda i: filter_txt_length(i['text']))
 
     def collate_fn(self, batch):
         if self.model == 'claim_verification':
