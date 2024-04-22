@@ -33,6 +33,7 @@ def check_stats(dataset: Dataset) -> dict:
 
     return stats
 
+
 def create_def_dataset(file_in: str, file_out: str, person_prop=0.1, long=True) -> Tuple[int, int]:
     """
     Create the dataset containing definition claims.

@@ -5,7 +5,7 @@ import json
 class Reader:
     """General file reader."""
 
-    def __init__(self,encoding="utf-8"):
+    def __init__(self, encoding="utf-8"):
         self.enc = encoding
 
     def read(self, file):
