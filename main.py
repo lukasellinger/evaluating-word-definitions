@@ -16,7 +16,7 @@ dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id
                                          group_concat(dd.evidence_sentence_id) as evidence_lines
                                   from def_dataset dd
                                     join documents docs on docs.document_id = dd.evidence_wiki_url
-                                  where set_type='train' and length(docs.lines) < 800
+                                  where set_type='train'
                                   group by dd.id, evidence_annotation_id, evidence_wiki_url""",
                            con=DB_URL)
 
@@ -46,15 +46,16 @@ def convert_to_labels(similarities, labels, k=2):
 gt_labels = []
 pr_labels = []
 for batch in tqdm(train_dataloader):
-    selection_model.train()
-    model_input = batch["model_input"]
-    claim_embedding = selection_model(input_ids=model_input['claim_input_ids'],
-                                      attention_mask=model_input['claim_attention_mask'])
-    sentence_embeddings = selection_model(input_ids=model_input['input_ids'],
-                                          attention_mask=model_input['attention_mask'],
-                                          sentence_mask=model_input['sentence_mask'])
-    claim_similarities = F.cosine_similarity(claim_embedding, sentence_embeddings, dim=2)
-    claim_similarities = claim_similarities.nan_to_num(nan=float('-inf'))
+    selection_model.eval()
+    with torch.no_grad():
+        model_input = batch["model_input"]
+        claim_embedding = selection_model(input_ids=model_input['claim_input_ids'],
+                                          attention_mask=model_input['claim_attention_mask'])
+        sentence_embeddings = selection_model(input_ids=model_input['input_ids'],
+                                              attention_mask=model_input['attention_mask'],
+                                              sentence_mask=model_input['sentence_mask'])
+        claim_similarities = F.cosine_similarity(claim_embedding, sentence_embeddings, dim=2)
+        claim_similarities = claim_similarities.nan_to_num(nan=float('-inf'))
 
     predicted, true_labels = convert_to_labels(claim_similarities, batch['labels'], k=2)
     gt_labels.extend(true_labels.tolist())

@@ -36,7 +36,7 @@ def process_sentence(sentence):
 
 def process_lines(lines):
     """Removes empty lines."""
-    return re.sub(r'(\d\t\n)|(\n\d\t$)', '', lines)
+    return re.sub(r'(\d+\t\n)|(\n\d+\t$)', '', lines)
 
 
 class DefinitionDataset(Dataset):
