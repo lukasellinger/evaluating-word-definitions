@@ -145,12 +145,12 @@ class DefinitionDataset(Dataset):
         attention_masks = self.build_attention_masks(all_input_ids,
                                                      pad_token=self.tokenizer.pad_token_id)
 
-        model_input = {'claim_input_ids': torch.tensor(all_claim_input_ids),
-                       'claim_attention_mask': torch.tensor(claim_attention_masks),
-                       'input_ids': torch.tensor(all_input_ids),
-                       'attention_mask': torch.tensor(attention_masks),
-                       'sentence_mask': torch.tensor(all_sentence_mask)}
-        labels = torch.tensor(all_labels)
+        model_input = {'claim_input_ids': torch.tensor(all_claim_input_ids).to(self.device),
+                       'claim_attention_mask': torch.tensor(claim_attention_masks).to(self.device),
+                       'input_ids': torch.tensor(all_input_ids).to(self.device),
+                       'attention_mask': torch.tensor(attention_masks).to(self.device),
+                       'sentence_mask': torch.tensor(all_sentence_mask).to(self.device)}
+        labels = torch.tensor(all_labels).to(self.device)
         return model_input, labels
 
     @staticmethod
