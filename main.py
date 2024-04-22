@@ -20,13 +20,14 @@ dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id
                                   group by dd.id, evidence_annotation_id, evidence_wiki_url""",
                            con=DB_URL)
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
 #tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
 #model = AutoModel.from_pretrained('sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
 
 model = BigBirdModel.from_pretrained("google/bigbird-roberta-large")
 tokenizer = AutoTokenizer.from_pretrained("google/bigbird-roberta-large")
 
-selection_model = EvidenceSelectionModel(model)
+selection_model = EvidenceSelectionModel(model).to(device)
 train_dataset = DefinitionDataset(dataset, tokenizer, mode='train', model='evidence_selection')
 train_dataloader = DataLoader(train_dataset, shuffle=True,
                               collate_fn=train_dataset.collate_fn,

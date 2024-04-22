@@ -100,9 +100,9 @@ class DefinitionDataset(Dataset):
         attention_masks = self.build_attention_masks(all_input_ids,
                                                      pad_token=self.tokenizer.pad_token_id)
 
-        model_input = {'input_ids': torch.tensor(all_input_ids),
-                       'attention_mask': torch.tensor(attention_masks)}
-        labels = torch.tensor(all_labels)
+        model_input = {'input_ids': torch.tensor(all_input_ids).to(self.device),
+                       'attention_mask': torch.tensor(attention_masks).to(self.device)}
+        labels = torch.tensor(all_labels).to(self.device)
         return model_input, labels
 
     def get_batch_input_evidence_selection(self, batch):
