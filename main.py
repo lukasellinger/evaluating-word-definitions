@@ -1,6 +1,7 @@
 """Main script."""
 import torch
 from datasets import Dataset
+from sklearn.metrics import accuracy_score, f1_score
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM, BigBirdModel
@@ -15,7 +16,7 @@ dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id
                                          group_concat(dd.evidence_sentence_id) as evidence_lines
                                   from def_dataset dd
                                     join documents docs on docs.document_id = dd.evidence_wiki_url
-                                  where set_type='train' and length(docs.lines) < 500
+                                  where set_type='train' and length(docs.lines) < 800
                                   group by dd.id, evidence_annotation_id, evidence_wiki_url""",
                            con=DB_URL)
 
@@ -32,33 +33,33 @@ train_dataloader = DataLoader(train_dataset, shuffle=True,
                               batch_size=10)
 
 
-def evaluate_accuracy(labels, similarities, unique_sents):
-    #top_indices = torch.topk(similarities, k=2)[1]
-    #t = (batch['labels'].view(-1).unsqueeze(-1) == unique_sents.unsqueeze(0)).reshape(10, 2, 5)
-    ##indices = torch.argmax(t.float(), dim=-1)
-    #indices[torch.sum(t, dim=-1) == 0] = -1
-    #return multilabel_accuracy(input=top_indices, target=indices, criteria='overlap').item()
-    top_k_similarities_idxs = torch.topk(similarities, k=2)[1]
+def convert_to_labels(similarities, labels, k=2):
+    top_indices = torch.topk(similarities, k=k)[1]
+    predicted = torch.zeros_like(similarities)
+    predicted.scatter_(1, top_indices, 1)
 
-    # TODO: get rid of for loop
-    accuracies = []
-    for label, top_k_similarity_idx in zip(labels, top_k_similarities_idxs):
-        masks_label_idx = (label.unsqueeze(1) == unique_sents.unsqueeze(0)).nonzero()[:, 1]
-        accuracies.append(torch.all(torch.isin(masks_label_idx, top_k_similarity_idx)).float().item())
-
-    return sum(accuracies) / len(accuracies)
+    mask = (labels != -1).flatten()
+    return predicted.flatten()[mask], labels.flatten()[mask]
 
 
-accuracies = []
+gt_labels = []
+pr_labels = []
 for batch in tqdm(train_dataloader):
     selection_model.train()
     model_input = batch["model_input"]
-    claim_embedding, _ = selection_model(input_ids=model_input['claim_input_ids'],
-                                         attention_mask=model_input['claim_attention_mask'])
-    sentence_embeddings, sentence_mask_ordering = selection_model(input_ids=model_input['input_ids'], attention_mask=model_input['attention_mask'], sentence_mask=model_input['sentence_mask'])
-    similarities = F.cosine_similarity(claim_embedding, sentence_embeddings, dim=2)
-    similarities = similarities.nan_to_num(nan=float('-inf'))
+    claim_embedding = selection_model(input_ids=model_input['claim_input_ids'],
+                                      attention_mask=model_input['claim_attention_mask'])
+    sentence_embeddings = selection_model(input_ids=model_input['input_ids'],
+                                          attention_mask=model_input['attention_mask'],
+                                          sentence_mask=model_input['sentence_mask'])
+    claim_similarities = F.cosine_similarity(claim_embedding, sentence_embeddings, dim=2)
+    claim_similarities = claim_similarities.nan_to_num(nan=float('-inf'))
 
-    accuracies.append(evaluate_accuracy(batch['labels'], similarities, sentence_mask_ordering))
+    predicted, true_labels = convert_to_labels(claim_similarities, batch['labels'], k=2)
+    gt_labels.extend(true_labels.tolist())
+    pr_labels.extend(predicted.tolist())
 
-print(sum(accuracies) / len(accuracies))
+
+acc = accuracy_score(gt_labels, pr_labels)
+f1_weighted = f1_score(gt_labels, pr_labels, average='weighted')
+f1_macro = f1_score(gt_labels, pr_labels, average='macro')

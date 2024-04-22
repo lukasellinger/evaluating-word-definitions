@@ -122,29 +122,28 @@ class DefinitionDataset(Dataset):
                 encoded_line = self.tokenizer.encode(line)[1:-1]  # + [1]
                 encoded_sequence += encoded_line
                 sentence_mask += [int(line_number)] * len(encoded_line)
-
-                if line_number in evidence_lines:
-                    labels.append(int(line_number))
+                labels.append(1 if line_number in evidence_lines else 0)
                 encoded_sequence.append(self.tokenizer.sep_token_id)
                 sentence_mask.append(-1)
+
+            unique_sentence_numbers = set(sentence_mask)
+            sentence_masks = []
+            for num in unique_sentence_numbers:
+                if num == -1:
+                    continue
+                sentence_masks.append([1 if val == num else 0 for val in sentence_mask])
 
             all_claim_input_ids.append(encoded_claim)
             all_input_ids.append(encoded_sequence)
             all_labels.append(labels)
-            all_sentence_mask.append(sentence_mask)
+            all_sentence_mask.append(sentence_masks)
 
         claim_attention_masks = self.build_attention_masks(all_claim_input_ids,
                                                            pad_token=self.tokenizer.pad_token_id)
-        self.pad(all_labels, pad_token=-2)
-        attention_masks = []
-        max_length = max(len(i) for i in all_input_ids)
-        for input_ids, sentence_mask in zip(all_input_ids, all_sentence_mask):
-            length = len(input_ids)
-            pad_length = max_length - length
-            input_ids += [self.tokenizer.pad_token_id] * pad_length
-            sentence_mask += [-1] * pad_length
-            attention_mask = [1] * length + [0] * pad_length
-            attention_masks.append(attention_mask)
+        self.pad(all_labels, pad_token=-1)
+        self.pad_nested_lists(all_sentence_mask, pad_token=0)
+        attention_masks = self.build_attention_masks(all_input_ids,
+                                                     pad_token=self.tokenizer.pad_token_id)
 
         model_input = {'claim_input_ids': torch.tensor(all_claim_input_ids),
                        'claim_attention_mask': torch.tensor(claim_attention_masks),
@@ -173,3 +172,14 @@ class DefinitionDataset(Dataset):
             length = len(i)
             pad_length = max_length - length
             i += [pad_token] * pad_length
+
+    @staticmethod
+    def pad_nested_lists(lst, pad_token=0):
+        max_sentence_count = max(len(i) for i in lst)
+        max_sentence_length = max(len(item) for sublist in lst for item in sublist)
+
+        for sublist in lst:
+            sublist.extend([[pad_token] for i in range(max_sentence_count - len(sublist))])
+
+            for subsublist in sublist:
+                subsublist += [pad_token] * (max_sentence_length - len(subsublist))

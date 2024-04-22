@@ -10,15 +10,24 @@ CREATE TABLE IF NOT EXISTS german_dataset (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     question TEXT,
     answer TEXT,
+<<<<<<< HEAD
     fact TEXT,
     context TEXT,
     label VARCHAR
+=======
+    fact TEXT
+>>>>>>> c7ae3c4888478476bbf6b047ca69247135338b75
 );
 """
 
 INSERT_ENTRY = """
+<<<<<<< HEAD
 INSERT INTO german_dataset (question, answer, fact, context, label)
 VALUES (?, ?, ?, ?, ?)
+=======
+INSERT INTO german_dataset (question, answer, fact)
+VALUES (?, ?, ?)
+>>>>>>> c7ae3c4888478476bbf6b047ca69247135338b75
 """
 
 QUESTION_CONVERSION = {"Was ist": "{} ist {}.",
@@ -30,6 +39,7 @@ QUESTION_CONVERSION = {"Was ist": "{} ist {}.",
                        }
 
 
+<<<<<<< HEAD
 def create_fact(question_sent, answer_sent):
     """Create a fact sentence out of the question and answer."""
     for key, value in QUESTION_CONVERSION.items():
@@ -45,6 +55,27 @@ def is_def_question(question_sent):
     if question_sent.startswith(tuple(QUESTION_CONVERSION.keys())):
         if question_sent.startswith('Was ist'):
             question_tokens = nlp(question_sent)
+=======
+def create_fact(entry):
+    """Create a fact sentence out of the question and answer."""
+    question = entry['question'].strip()
+    for key, value in QUESTION_CONVERSION.items():
+        if question.startswith(key):
+            entity = question[len(key) + 1: -1]
+            answer = entry['answers'][0].strip(' .')
+            entry['fact'] = value.format(entity, answer).strip()
+            entry['fact'] = entry['fact'][0].upper() + entry['fact'][1:]
+            return entry
+    return entry
+
+
+def is_german_def_question(entry):
+    """Checks whether the entry has a question which asks for a definition of an word"""
+    question = str(entry['question']).strip()
+    if question.startswith(tuple(QUESTION_CONVERSION.keys())):
+        if question.startswith('Was ist'):
+            question_tokens = nlp(question)
+>>>>>>> c7ae3c4888478476bbf6b047ca69247135338b75
 
             word = question_tokens[2]
             if word.pos_ == 'DET':
@@ -55,7 +86,11 @@ def is_def_question(question_sent):
                 if child.pos_ == 'ADJ':
                     return False
 
+<<<<<<< HEAD
             if question_sent.endswith(f'{word}?'):
+=======
+            if question.endswith(f'{word}?'):
+>>>>>>> c7ae3c4888478476bbf6b047ca69247135338b75
                 return True
         else:
             return True
@@ -66,6 +101,7 @@ with FeverDocDB() as db:
     db.write(CREATE_GERMAN_DATASET)
 
 nlp = spacy.load("de_core_news_lg")
+<<<<<<< HEAD
 dataset_dpr = load_dataset("deepset/germandpr")
 dataset_dpr_cc = concatenate_datasets([dataset_dpr['train'], dataset_dpr['test']])
 filtered_dataset_dpr = dataset_dpr_cc.filter(lambda i: is_def_question(i['question'].strip()))
@@ -87,3 +123,15 @@ with FeverDocDB() as db:
         for neg_ctx in entry['hard_negative_ctxs']['text']:
             label = 'NOT ENOUGH INFO'  # need to be careful. Ctx might also support fact.
             db.write(INSERT_ENTRY, (question, answer, fact, neg_ctx, label))
+=======
+dataset = load_dataset("deepset/germandpr")
+dataset_cc = concatenate_datasets([dataset['train'], dataset['test']])
+filtered_dataset = dataset_cc.filter(lambda entry: is_german_def_question(entry))
+
+with FeverDocDB() as db:
+    for entry in tqdm(filtered_dataset, desc='Inserting Entry'):
+        question = entry['question']
+        answer = entry['answers'][0]  # answers always only 1 answer
+        fact = create_fact(entry)['fact']
+        db.write(INSERT_ENTRY, (question, answer, fact))
+>>>>>>> c7ae3c4888478476bbf6b047ca69247135338b75
