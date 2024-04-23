@@ -74,7 +74,7 @@ class DefinitionDataset(Dataset):
 
     def collate_fn(self, batch):
         if self.model == 'claim_verification':
-            model_inputs, labels = self.get_batch_input_claim_verification(batch)
+            model_inputs, labels, hypothesis_lengths = self.get_batch_input_claim_verification(batch)
         elif self.model == 'evidence_selection':
             model_inputs, labels = self.get_batch_input_evidence_selection(batch)
         else:
@@ -87,16 +87,18 @@ class DefinitionDataset(Dataset):
             documents = [i["document_id"] for i in batch]
             evidence_lines = [i["evidence_lines"] for i in batch]
             claim_ids = [i["id"] for i in batch]
+            claim_lengths = [len(i["claim"]) for i in batch]
+            doc_lengths = [len(i["text"]) for i in batch] if self.model == 'evidence_selection' else hypothesis_lengths
+
             return {"model_input": model_inputs, "labels": labels, "documents": documents,
-                    "evidence_lines": evidence_lines, "claim_id": claim_ids}
+                    "evidence_lines": evidence_lines, "claim_id": claim_ids,
+                    "claim_length": torch.tensor(claim_lengths), "doc_length": torch.tensor(doc_lengths)}
 
     def get_batch_input_claim_verification(self, batch):
-        all_input_ids, all_labels = [], []
+        all_input_ids, all_labels, hypothesis_lengths = [], [], []
 
         for data in batch:
             evidence_lines = data['evidence_lines'].split(',')
-            # TODO check what to do with claim in NLI model, which NLI model, ...
-
             hypothesis = ""
             lines = process_lines(data['lines'])
             for line in lines.split('\n'):
@@ -111,13 +113,14 @@ class DefinitionDataset(Dataset):
             encoded_sequence = self.tokenizer.encode(hypothesis, data['claim'])
             all_input_ids.append(encoded_sequence)
             all_labels.append(Fact[data['label']].value)
+            hypothesis_lengths.append(len(hypothesis))
         attention_masks = self.build_attention_masks(all_input_ids,
                                                      pad_token=self.tokenizer.pad_token_id)
 
         model_input = {'input_ids': torch.tensor(all_input_ids).to(self.device),
                        'attention_mask': torch.tensor(attention_masks).to(self.device)}
         labels = torch.tensor(all_labels).to(self.device)
-        return model_input, labels
+        return model_input, labels, hypothesis_lengths
 
     def get_batch_input_evidence_selection(self, batch):
         all_claim_input_ids, all_input_ids, all_labels, all_sentence_mask = [], [], [], []
