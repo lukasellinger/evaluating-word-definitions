@@ -7,8 +7,9 @@ from torch import nn
 
 
 class ClaimVerificationModel(nn.Module):
-    def __init__(self):
+    def __init__(self, model):
         super().__init__()
+        self.model = model
 
-    def forward(self):
-        pass
+    def forward(self, input_ids=None, attention_mask=None,):
+        return self.model(input_ids=input_ids, attention_mask=attention_mask)

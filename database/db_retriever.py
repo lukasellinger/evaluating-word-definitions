@@ -41,33 +41,12 @@ class FeverDocDB:
         cursor.close()
         self.connection.commit()
 
-    def get_doc_ids(self):
-        """Fetch all ids of docs stored in the db."""
-        cursor = self.connection.cursor()
-        cursor.execute("SELECT id FROM documents")
-        results = [r[0] for r in cursor.fetchall()]
-        cursor.close()
-        return results
-
     def get_doc_lines(self, doc_id):
         """Fetch the raw text of the doc for 'doc_id'."""
         cursor = self.connection.cursor()
-        norm_id = unicodedata.normalize("NFD", doc_id)
         cursor.execute(
-            "SELECT lines FROM documents WHERE id = ?", (norm_id,),
+            "SELECT lines FROM documents WHERE document_id = ?", (doc_id,),
         )
         result = cursor.fetchone()
         cursor.close()
         return result if result is None else result[0]
-
-    def get_all_doc_lines(self, doc_ids):
-        """Fetch the raw text of the docs in 'doc_ids'."""
-        cursor = self.connection.cursor()
-        placeholders = ",".join(["?"] * len(doc_ids))
-        norm_ids = [unicodedata.normalize("NFD", doc_id) for doc_id in doc_ids]
-        cursor.execute(
-            f"SELECT id,lines FROM documents WHERE id IN ({placeholders})", norm_ids,
-        )
-        results = cursor.fetchall()
-        cursor.close()
-        return results

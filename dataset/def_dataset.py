@@ -12,9 +12,17 @@ from utils import convert_to_unicode
 
 
 class Fact(Enum):
-    SUPPORTED = 1
-    REFUTED = 2
-    NOT_ENOUGH_INFO = 3  # TODO data needed, FEVER has empty documents
+    SUPPORTS = 0
+    REFUTES = 2
+    NOT_ENOUGH_INFO = 1  # TODO data needed, FEVER has empty documents
+
+    def to_factuality(self):
+        factuality = {
+            Fact.SUPPORTS: 1,
+            Fact.REFUTES: 0,
+            Fact.NOT_ENOUGH_INFO: -1  # TODO what happens with not enough info
+        }
+        return factuality[self]
 
 
 def process_sentence(sentence):
@@ -88,9 +96,9 @@ class DefinitionDataset(Dataset):
         for data in batch:
             evidence_lines = data['evidence_lines'].split(',')
             # TODO check what to do with claim in NLI model, which NLI model, ...
-            encoded_claim = self.tokenizer.encode(data['claim'])
+
+            hypothesis = ""
             lines = process_lines(data['lines'])
-            encoded_sequence = []
             for line in lines.split('\n'):
                 line = process_sentence(line)
                 line_number = line.split('\t')[0]
@@ -98,10 +106,9 @@ class DefinitionDataset(Dataset):
                     continue
 
                 line = line.lstrip(f'{line_number}\t')
-                encoded_line = self.tokenizer.encode(line)[1:-1]  # + [1]
-                encoded_sequence += encoded_line
-                encoded_sequence.append(self.tokenizer.sep_token_id)
-
+                hypothesis += line
+                hypothesis += ' '
+            encoded_sequence = self.tokenizer.encode(hypothesis, data['claim'])
             all_input_ids.append(encoded_sequence)
             all_labels.append(Fact[data['label']].value)
         attention_masks = self.build_attention_masks(all_input_ids,
