@@ -2,6 +2,8 @@
 from typing import Type
 
 import torch
+from sklearn.metrics import accuracy_score, f1_score
+from tqdm import tqdm
 from transformers import BigBirdModel, AutoTokenizer, AutoModelForSequenceClassification
 import torch.nn.functional as F
 
@@ -103,7 +105,7 @@ class TestPipeline(Pipeline):
             claim_embedding = self.selection_model(**claim_model_input)
             sentence_embeddings = self.selection_model(**sentences_model_input)
             claim_similarities = F.cosine_similarity(claim_embedding, sentence_embeddings, dim=2)
-            top_indices = torch.topk(claim_similarities, k=top_k)[1].squeeze(0)  # TODO does not work with batch
+            top_indices = torch.topk(claim_similarities, k=top_k)[1].squeeze(0)
 
         return [sentences[index] for index in top_indices]
 
@@ -153,5 +155,35 @@ class WikiPipeline(Pipeline):
 
 if __name__ == "__main__":
     pipeline = TestPipeline()
-    print(pipeline.verify(word='Newfoundland_and_Labrador',
-                          claim='Newfoundland and Labrador is the most linguistically homogeneous of Canada.'))
+
+    tests = [('Albania', 'Albania is a member of NATO.', 1),
+             ('Spain', 'Spain is in Europe.', 1),
+             ('Reds_-LRB-film-RRB-', 'Reds is an epic drama film.', 1),
+             ('Unpredictable_-LRB-Jamie_Foxx_album-RRB-', 'Unpredictable was an album.', 1),
+             ('Ruth_Negga', 'Ruth Negga is a film actress.', 1),
+             ('Inspectah_Deck', 'Inspectah Deck is stateless.', 0),
+             ('Drake_-LRB-musician-RRB-', 'Drake is only German.', 0),
+             ('Overwatch_-LRB-video_game-RRB-', 'Overwatch is a board game.', 0),
+             ('Ad-Rock', 'Ad-Rock is single.', 0),
+             ('Gujarat', 'Gujarat is in Western Boston.', 0)]
+
+    pr_labels = []
+    gt_labels = []
+    for word, claim, gt_label in tqdm(tests, desc='Verifying claim'):
+        factuality = pipeline.verify(word=word, claim=claim)
+        gt_labels.append(gt_label)
+        pr_labels.append(factuality)
+
+    acc = accuracy_score(gt_labels, pr_labels)
+    f1_weighted = f1_score(gt_labels, pr_labels, average='weighted')
+    f1_macro = f1_score(gt_labels, pr_labels, average='macro')
+
+    print(acc)
+    print(f1_weighted)
+    print(f1_macro)
+
+    ######
+    # 0.9
+    # 0.94
+    # 0.63
+    ######
