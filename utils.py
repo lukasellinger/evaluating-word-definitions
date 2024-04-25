@@ -41,9 +41,9 @@ def calc_bin_stats(gt_labels, pr_labels, values):
 
 
 def plot_graph(keys, values, x_label='', y_label='', title=''):
-    plt.bar(keys, values, align='center')
+    plt.plot(keys, values, marker='o', linestyle='-')
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.title(title)
-    plt.xticks(keys)
+    plt.xticks(keys, rotation=45)
     plt.show()
