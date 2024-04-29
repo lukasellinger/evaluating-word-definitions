@@ -1,7 +1,7 @@
 """Main evidence selection script."""
 import torch
 from datasets import Dataset
-from sklearn.metrics import accuracy_score, f1_score, recall_score
+from sklearn.metrics import accuracy_score, f1_score, recall_score, classification_report
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM, BigBirdModel
@@ -18,7 +18,7 @@ dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id
                                          docs.lines, group_concat(dd.evidence_sentence_id) as evidence_lines
                                   from def_dataset dd
                                     join documents docs on docs.document_id = dd.evidence_wiki_url
-                                  where set_type='train' and length(docs.text) < 100
+                                  where set_type='train'
                                   group by dd.id, evidence_annotation_id, evidence_wiki_url
                                   limit 30""",
                            con=DB_URL)
@@ -31,7 +31,7 @@ model_name = 'google/bigbird-roberta-large'
 model = BigBirdModel.from_pretrained(model_name)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-selection_model = EvidenceSelectionModel(model).to(device)
+selection_model = EvidenceSelectionModel(model, feed_forward=True).to(device)
 train_dataset = DefinitionDataset(dataset, tokenizer, mode='validation', model='evidence_selection')
 train_dataloader = DataLoader(train_dataset, shuffle=True,
                               collate_fn=train_dataset.collate_fn,
@@ -40,11 +40,11 @@ criterion = SupConLoss()
 
 
 def convert_to_labels(similarities, labels, k=2):
-    top_indices = torch.topk(similarities, k=k)[1]
+    top_indices = torch.topk(similarities, k=min(k, similarities.size(1)))[1]
     predicted = torch.zeros_like(similarities)
     predicted.scatter_(1, top_indices, 1)
 
-    top_k_hits = labels[torch.arange(10).unsqueeze(1), top_indices]
+    top_k_hits = labels[torch.arange(labels.size(0)).unsqueeze(1), top_indices]
     top_k_hits = torch.any(top_k_hits == 1, dim=1).float()
 
     mask = (labels != -1).flatten()
@@ -108,3 +108,4 @@ print(recall)
 print(f1_weighted)
 print(f1_macro)
 print(top_k_acc)
+print(classification_report(gt_labels, pr_labels))
