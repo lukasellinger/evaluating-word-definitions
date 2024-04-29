@@ -28,11 +28,13 @@ class EvidenceSelectionModel(nn.Module):
 
         outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)['last_hidden_state']
 
+        sentence_embeddings = self.sentence_mean_pooling(outputs, sentence_mask)
         if self.feed_forward:
             if self.normalize_before_fc:
-                outputs = F.normalize(outputs, dim=2)
-            outputs = self.fc(outputs)
-        return self.sentence_mean_pooling(outputs, sentence_mask)
+                sentence_embeddings = F.normalize(sentence_embeddings, dim=2)
+            return self.fc(sentence_embeddings)
+        else:
+            return sentence_embeddings
 
     @staticmethod
     def sentence_mean_pooling(model_output, sentence_mask):

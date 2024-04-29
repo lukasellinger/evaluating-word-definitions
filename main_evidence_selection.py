@@ -20,7 +20,7 @@ dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id
                                     join documents docs on docs.document_id = dd.evidence_wiki_url
                                   where set_type='train'
                                   group by dd.id, evidence_annotation_id, evidence_wiki_url
-                                  limit 30""",
+                                  limit 50""",
                            con=DB_URL)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
