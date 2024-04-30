@@ -23,13 +23,13 @@ class SupConLoss(nn.Module):
         :return: mean batch loss
         """
         pos_count = torch.sum(torch.eq(labels, 1), dim=-1)
-        similarity = F.cosine_similarity(anchor, references, dim=-1) / self.temperature
 
-        logits_max = torch.max(similarity.nan_to_num(nan=float('-inf')), dim=-1)[0].detach()
+        similarity = F.cosine_similarity(anchor, references, dim=-1) / self.temperature
+        logits_max = torch.max(similarity, dim=-1)[0].detach()
         similarity = similarity - logits_max.unsqueeze(-1)
 
         pos_pairs = similarity.masked_fill(~torch.eq(labels, 1), 0)
-        sum_pos_pairs = torch.sum(pos_pairs)
+        sum_pos_pairs = torch.sum(pos_pairs, dim=-1)
 
         neg_pairs = similarity.masked_fill(~torch.eq(labels, 0), float('-inf'))
         pos_pairs = similarity.masked_fill(~torch.eq(labels, 1), float('-inf'))

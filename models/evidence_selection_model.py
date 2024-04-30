@@ -43,10 +43,13 @@ class EvidenceSelectionModel(nn.Module):
         masks_size = sentence_mask.count_nonzero(dim=-1)
         masks = sentence_mask.unsqueeze(-1)
 
+        masks_size = torch.clamp(masks_size, min=1e-9)  # do not divide by 0
         sentence_embeddings = (masks * token_embeddings).sum(dim=2) / masks_size.unsqueeze(-1)
         return sentence_embeddings
 
     def save(self, name):
-        timestamp = datetime.now().strftime("%m-%d_%H-%M")
-        model_path = f'{name}_{timestamp}.pth'
-        torch.save(self.state_dict(), model_path)
+        # model_path = f'{name}.pth'
+        if self.feed_forward:
+            torch.save(self.fc.state_dict(), f'{name}_fc.pth')
+        else:
+            self.model.save_pretrained(f'{name}')
