@@ -37,14 +37,14 @@ class EvidenceSelectionModel(nn.Module):
             return sentence_embeddings
 
     @staticmethod
-    def sentence_mean_pooling(model_output, sentence_mask):
-        token_embeddings = model_output.unsqueeze(1)
+    def sentence_mean_pooling(model_output, masks):
+        model_output.unsqueeze_(1)
 
-        masks_size = sentence_mask.count_nonzero(dim=-1)
-        masks = sentence_mask.unsqueeze(-1)
+        masks_size = masks.count_nonzero(dim=-1)
+        masks.unsqueeze_(-1)
 
         masks_size = torch.clamp(masks_size, min=1e-9)  # do not divide by 0
-        sentence_embeddings = (masks * token_embeddings).sum(dim=2) / masks_size.unsqueeze(-1)
+        sentence_embeddings = (masks * model_output).sum(dim=2) / masks_size.unsqueeze(-1)
         return sentence_embeddings
 
     def save(self, name):

@@ -31,13 +31,10 @@ class SupConLoss(nn.Module):
         pos_pairs = similarity.masked_fill(~torch.eq(labels, 1), 0)
         sum_pos_pairs = torch.sum(pos_pairs, dim=-1)
 
-        neg_pairs = similarity.masked_fill(~torch.eq(labels, 0), float('-inf'))
-        pos_pairs = similarity.masked_fill(~torch.eq(labels, 1), float('-inf'))
+        exp_pos_pairs = torch.exp(similarity.masked_fill(~torch.eq(labels, 0), float('-inf')))
+        exp_neg_pairs = torch.exp(similarity.masked_fill(~torch.eq(labels, 1), float('-inf')))
 
-        exp_pos_pairs = torch.exp(pos_pairs)
-        exp_neg_pairs = torch.exp(neg_pairs)
-        exp_total = torch.sum(exp_pos_pairs + exp_neg_pairs, dim=-1)
-        log_exp_total = torch.log(exp_total)
+        log_exp_total = torch.log(torch.sum(exp_pos_pairs + exp_neg_pairs, dim=-1))
 
         loss = - 1 / pos_count * (sum_pos_pairs - pos_count * log_exp_total)
 
