@@ -4,6 +4,7 @@
 
 import re
 from enum import Enum
+from typing import Tuple
 
 import torch
 from torch.utils.data import Dataset
@@ -45,6 +46,14 @@ def process_sentence(sentence):
 def process_lines(lines):
     """Removes empty lines."""
     return re.sub(r'(\d+\t\n)|(\n\d+\t$)', '', lines)
+
+
+def split_text(line: str) -> Tuple[str, str]:
+    """Splits the text into line number and text."""
+    tab_splits = line.split('\t')
+    line_number = tab_splits[0]
+    text = tab_splits[1]
+    return line_number, text
 
 
 class DefinitionDataset(Dataset):
@@ -103,12 +112,10 @@ class DefinitionDataset(Dataset):
             lines = process_lines(data['lines'])
             for line in lines.split('\n'):
                 line = process_sentence(line)
-                line_number = line.split('\t')[0]
+                line_number, text = split_text(line)
                 if line_number not in evidence_lines:
                     continue
-
-                line = line.lstrip(f'{line_number}\t')
-                hypothesis += line
+                hypothesis += text
                 hypothesis += ' '
             encoded_sequence = self.tokenizer.encode(hypothesis, data['claim'])
             all_input_ids.append(encoded_sequence)
@@ -134,9 +141,8 @@ class DefinitionDataset(Dataset):
             sentence_mask = []
             for line in lines.split('\n'):
                 line = process_sentence(line)
-                line_number = line.split('\t')[0]
-                line = line.lstrip(f'{line_number}\t')
-                encoded_line = self.tokenizer.encode(line)[1:-1]  # + [1]
+                line_number, text = split_text(line)
+                encoded_line = self.tokenizer.encode(text)[1:-1]  # + [1]
                 encoded_sequence += encoded_line
                 sentence_mask += [int(line_number)] * len(encoded_line)
                 labels.append(1 if line_number in evidence_lines else 0)
