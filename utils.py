@@ -1,6 +1,9 @@
 """General utils for processing."""
+from typing import List, Dict
+
 import numpy as np
 from matplotlib import pyplot as plt
+from rank_bm25 import BM25Okapi
 from sklearn.metrics import accuracy_score, f1_score
 
 
@@ -14,7 +17,37 @@ def convert_to_unicode(text):
     raise ValueError(f"Unsupported string type: {type(text)}")
 
 
-def calc_bin_stats(gt_labels, pr_labels, values):
+def rank_docs(query: str, docs: List[str], k=5, get_indices=True) -> List[str] | List[int]:
+    """
+    Get the top k most similar documents according to the query using the BM25 algorithms.
+    :param query: query sentence.
+    :param docs: documents to rank.
+    :param k: amount of documents to return
+    :param get_indices: If True, returns the indices, else the text.
+    :return: List of most similar documents.
+    """
+    def preprocess(txt: str):
+         return txt.lower()
+
+    query = preprocess(query)
+    docs = [preprocess(doc) for doc in docs]
+    tokenized_corpus = [doc.split(" ") for doc in docs]
+    bm25 = BM25Okapi(tokenized_corpus)
+    if get_indices:
+        scores = np.array(bm25.get_scores(query.split(" ")))
+        return np.flip(np.argsort(scores)[-k:]).tolist()
+    else:
+        return bm25.get_top_n(query.split(" "), docs, k)
+
+
+def calc_bin_stats(gt_labels: List, pr_labels: List, values: List) -> Dict:
+    """
+    Calculate the stats for each bin. Bins a separated using sturgess rule.
+    :param gt_labels: ground truth labels.
+    :param pr_labels: predicted labels.
+    :param values: value to an according ground truth / predicted pair.
+    :return: A dictionary of bins and their stats.
+    """
     values = np.array(values)
     gt_labels = np.array(gt_labels)
     pr_labels = np.array(pr_labels)
@@ -41,6 +74,7 @@ def calc_bin_stats(gt_labels, pr_labels, values):
 
 
 def plot_graph(keys, values, x_label='', y_label='', title=''):
+    """Plots a graph. Keys are associated with x-axis, values with y-axis."""
     plt.plot(keys, values, marker='o', linestyle='-')
     plt.xlabel(x_label)
     plt.ylabel(y_label)

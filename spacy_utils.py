@@ -82,3 +82,9 @@ def get_ent_type(sentence: str) -> str:
         first_token = first_token.head
 
     return first_token.ent_type_
+
+
+def split_into_sentences(text: str) -> List[str]:
+    """Split a text into sentences."""
+    doc = nlp(text)
+    return [sent.text for sent in doc.sents]

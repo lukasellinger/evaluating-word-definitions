@@ -8,9 +8,11 @@ from transformers import BigBirdModel, AutoTokenizer, AutoModelForSequenceClassi
 import torch.nn.functional as F
 
 from database.db_retriever import FeverDocDB
-from dataset.def_dataset import Fact, process_sentence, process_lines
+from dataset.def_dataset import Fact, process_sentence, process_lines, split_text
+from fetchers.wikipedia import Wikipedia
 from models.claim_verification_model import ClaimVerificationModel
 from models.evidence_selection_model import EvidenceSelectionModel
+from utils import rank_docs
 
 
 class Pipeline:
@@ -18,7 +20,7 @@ class Pipeline:
 
     def verify(self, word: str, claim: str) -> float:
         """
-        Verify a claim related to a word. TODO: use numpy
+        Verify a claim related to a word.
         :param word: Word associated to the claim.
         :param claim: Claim to be verified.
         :return: percentage of true facts inside the claim.
@@ -38,18 +40,18 @@ class Pipeline:
         """Process a claim. E.g. split it into its atomic facts."""
         return [claim]
 
-    def fetch_evidence(self, word: str) -> list[str]:
+    def fetch_evidence(self, word: str) -> list[list[str]]:
         """
         Fetch the information of the word inside the knowledge base.
         :param word: Word, for which we need information.
         :return: List of sentences, representing all information known to the word.
         """
 
-    def select_evidence(self, claim: str, sentences: list[str]) -> list[str]:
+    def select_evidence(self, claim: str, sentences: list[list[str]]) -> list[str]:
         """
         Select sentences possibly containing evidence for the claim.
         :param claim: Claim to be verified.
-        :param sentences: Sentences to choose from.
+        :param sentences: Sentences to choose from. Can be from multiple sources.
         :return: List of sentences, possibly containing evidence.
         """
 
@@ -62,12 +64,12 @@ class Pipeline:
         """
 
 
-class TestPipeline(Pipeline):
-    """Pipeline used for test purposes."""
+class ModelPipeline(Pipeline):
+    """Pipeline using llm models."""
 
     def __init__(self, selection_model=None, selection_model_tokenizer=None,
                  verification_model=None, verification_model_tokenizer=None):
-        super(TestPipeline).__init__()
+        super(ModelPipeline, self).__init__()
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         if not selection_model:
@@ -85,29 +87,6 @@ class TestPipeline(Pipeline):
             verification_model = ClaimVerificationModel(model).to(self.device)
         self.verification_model = verification_model
         self.verification_model_tokenizer = verification_model_tokenizer
-
-    def fetch_evidence(self, word: str) -> list[str]:
-        with FeverDocDB() as db:
-            lines = db.get_doc_lines(word)
-
-        lines = process_lines(lines)
-        processed_lines = []
-        for line in lines.split('\n'):
-            line = process_sentence(line)
-            line_number = line.split('\t')[0]
-            line = line.lstrip(f'{line_number}\t')
-            processed_lines.append(line)
-        return processed_lines
-
-    def select_evidence(self, claim: str, sentences: list[str], top_k=3) -> list[str]:
-        claim_model_input, sentences_model_input = self.build_selection_model_input(claim, sentences)
-        with torch.no_grad():
-            claim_embedding = self.selection_model(**claim_model_input)
-            sentence_embeddings = self.selection_model(**sentences_model_input)
-            claim_similarities = F.cosine_similarity(claim_embedding, sentence_embeddings, dim=2)
-            top_indices = torch.topk(claim_similarities, k=top_k)[1].squeeze(0)
-
-        return [sentences[index] for index in top_indices]
 
     def build_selection_model_input(self, claim: str, sentences: list[str]):
         encoded_sequence = []
@@ -146,15 +125,73 @@ class TestPipeline(Pipeline):
         return {'input_ids': torch.tensor(model_inputs['input_ids']).unsqueeze(0),
                 'attention_mask': torch.tensor(model_inputs['attention_mask']).unsqueeze(0)}
 
-class WikiPipeline(Pipeline):
+
+class TestPipeline(ModelPipeline):
+    """Pipeline used for test purposes."""
+
+    def __init__(self, selection_model=None, selection_model_tokenizer=None,
+                 verification_model=None, verification_model_tokenizer=None):
+        super(TestPipeline, self).__init__(selection_model, selection_model_tokenizer,
+                                           verification_model, verification_model_tokenizer)
+
+    def fetch_evidence(self, word: str) -> list[list[str]]:
+        with FeverDocDB() as db:
+            lines = db.get_doc_lines(word)
+
+        lines = process_lines(lines)
+        processed_lines = []
+        for line in lines.split('\n'):
+            line = process_sentence(line)
+            _, text = split_text(line)
+            processed_lines.append(text)
+        return [processed_lines]
+
+    def select_evidence(self, claim: str, sentences: list[list[str]], top_k=3) -> list[str]:
+        sentences = sentences[0]  # in test case we only have one page
+        claim_model_input, sentences_model_input = self.build_selection_model_input(claim, sentences)
+        with torch.no_grad():
+            claim_embedding = self.selection_model(**claim_model_input)
+            sentence_embeddings = self.selection_model(**sentences_model_input)
+            claim_similarities = F.cosine_similarity(claim_embedding, sentence_embeddings, dim=2)
+            top_indices = torch.topk(claim_similarities, k=top_k)[1].squeeze(0)
+
+        return [sentences[index] for index in top_indices]
+
+
+class WikiPipeline(ModelPipeline):
     """Pipeline using Wikipedia."""
 
-    def __init__(self):
-        super(WikiPipeline).__init__()
+    def __init__(self, selection_model=None, selection_model_tokenizer=None,
+                 verification_model=None, verification_model_tokenizer=None):
+        super(WikiPipeline, self).__init__(selection_model, selection_model_tokenizer,
+                                           verification_model, verification_model_tokenizer)
+        self.wiki = Wikipedia()
+
+    def fetch_evidence(self, word: str) -> list[list[str]]:
+        return self.wiki.get_summaries(word, k=20)
+
+    def select_evidence(self, claim: str, evidence_list: list[list[str]], top_k=3, max_evidence_count=3) -> list[str]:
+        if len(evidence_list) > max_evidence_count:
+            evidence_txts = [" ".join(txt) for txt in evidence_list]
+            ranked_indices = rank_docs(claim, evidence_txts, k=max_evidence_count)
+            evidence_list = [evidence_list[i] for i in ranked_indices]
+
+        sentence_similarities = []
+        for sentences in evidence_list:
+            claim_model_input, sentences_model_input = self.build_selection_model_input(claim, sentences)
+            with torch.no_grad():
+                claim_embedding = self.selection_model(**claim_model_input)
+                sentence_embeddings = self.selection_model(**sentences_model_input)
+                claim_similarities = F.cosine_similarity(claim_embedding, sentence_embeddings, dim=2).tolist()[0]
+                sentence_similarity = [(x, y) for x, y in zip(sentences, claim_similarities)]
+                sentence_similarities.extend(sentence_similarity)
+
+        sorted_sentences = sorted(sentence_similarities, key=lambda x: x[1], reverse=True)
+        return [sentence[0] for sentence in sorted_sentences[:top_k]]
 
 
 if __name__ == "__main__":
-    pipeline = TestPipeline()
+    pipeline = WikiPipeline()
 
     tests = [('Albania', 'Albania is a member of NATO.', 1),
              ('Spain', 'Spain is in Europe.', 1),
@@ -165,6 +202,17 @@ if __name__ == "__main__":
              ('Drake_-LRB-musician-RRB-', 'Drake is only German.', 0),
              ('Overwatch_-LRB-video_game-RRB-', 'Overwatch is a board game.', 0),
              ('Ad-Rock', 'Ad-Rock is single.', 0),
+             ('Gujarat', 'Gujarat is in Western Boston.', 0)]
+
+    tests = [('Albania', 'Albania is a member of NATO.', -1),  # is not in summary text for current wiki
+             ('Spain', 'Spain is in Europe.', 1),
+             ('Reds', 'Reds is an epic drama film.', 1),
+             ('Unpredictable', 'Unpredictable was an album.', 1),
+             ('Ruth Negga', 'Ruth Negga is a film actress.', 1),
+             ('Inspectah Deck', 'Inspectah Deck is stateless.', 0),  # ??
+             ('Drake', 'Drake is only German.', 0),
+             ('Overwatch', 'Overwatch is a board game.', 0),
+             ('Ad-Rock', 'Ad-Rock is single.', -1),  # is not in summary text for current wiki
              ('Gujarat', 'Gujarat is in Western Boston.', 0)]
 
     pr_labels = []
@@ -183,7 +231,12 @@ if __name__ == "__main__":
     print(f1_macro)
 
     ######
+    # test pipeline
     # 0.9
     # 0.94
     # 0.63
+    # wiki pipeline
+    # 0.9
+    # 0.89
+    # 0.85
     ######

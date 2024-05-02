@@ -11,7 +11,7 @@ from sklearn.metrics import classification_report
 from torch.utils.data import DataLoader
 from torch import optim
 from tqdm import tqdm
-from transformers import AutoTokenizer, BigBirdModel, get_linear_schedule_with_warmup
+from transformers import AutoTokenizer, BigBirdModel, get_linear_schedule_with_warmup, AutoModel
 from matplotlib import pyplot as plt
 from torch.cuda.amp import GradScaler, autocast
 
@@ -100,7 +100,7 @@ train_dataloader = DataLoader(train_dataset, shuffle=True,
                               collate_fn=train_dataset.collate_fn,
                               batch_size=2)
 dev_dataset = DefinitionDataset(dev_dataset_raw, tokenizer, mode='train', model='evidence_selection')
-dev_dataloader = DataLoader(train_dataset, shuffle=True,
+dev_dataloader = DataLoader(dev_dataset, shuffle=True,
                               collate_fn=dev_dataset.collate_fn,
                               batch_size=2)
 
