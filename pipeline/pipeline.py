@@ -1,11 +1,9 @@
 """Pipelines for the claim verification process."""
-from typing import Type
-
 import torch
 from sklearn.metrics import accuracy_score, f1_score
 from tqdm import tqdm
 from transformers import BigBirdModel, AutoTokenizer, AutoModelForSequenceClassification
-import torch.nn.functional as F
+from torch.nn.functional import cosine_similarity
 
 from database.db_retriever import FeverDocDB
 from dataset.def_dataset import Fact, process_sentence, process_lines, split_text
@@ -47,11 +45,11 @@ class Pipeline:
         :return: List of sentences, representing all information known to the word.
         """
 
-    def select_evidence(self, claim: str, sentences: list[list[str]]) -> list[str]:
+    def select_evidence(self, claim: str, evidence_list: list[list[str]]) -> list[str]:
         """
         Select sentences possibly containing evidence for the claim.
         :param claim: Claim to be verified.
-        :param sentences: Sentences to choose from. Can be from multiple sources.
+        :param evidence_list: Sentences to choose from. Can be from multiple sources.
         :return: List of sentences, possibly containing evidence.
         """
 
@@ -88,7 +86,8 @@ class ModelPipeline(Pipeline):
         self.verification_model = verification_model
         self.verification_model_tokenizer = verification_model_tokenizer
 
-    def build_selection_model_input(self, claim: str, sentences: list[str]):
+    def _build_selection_model_input(self, claim: str, sentences: list[str]):
+        """"""
         encoded_sequence = []
         sentence_mask = []
         for i, sentence in enumerate(sentences):
@@ -111,14 +110,14 @@ class ModelPipeline(Pipeline):
                  'sentence_mask': torch.tensor(sentence_masks).unsqueeze(0)})
 
     def verify_claim(self, claim: str, sentences: list[str]) -> Fact:
-        model_inputs = self.build_verification_model_input(claim, sentences)
+        model_inputs = self._build_verification_model_input(claim, sentences)
         with torch.no_grad():
             output = self.verification_model(**model_inputs)
             predicted = torch.softmax(output['logits'], dim=-1)
             predicted = torch.argmax(predicted, dim=-1).item()
         return Fact(predicted).to_factuality()
 
-    def build_verification_model_input(self, claim: str, sentences: list[str]):
+    def _build_verification_model_input(self, claim: str, sentences: list[str]):
         hypothesis = ' '.join(sentences)
         model_inputs = self.verification_model_tokenizer(hypothesis, claim)
 
@@ -128,11 +127,6 @@ class ModelPipeline(Pipeline):
 
 class TestPipeline(ModelPipeline):
     """Pipeline used for test purposes."""
-
-    def __init__(self, selection_model=None, selection_model_tokenizer=None,
-                 verification_model=None, verification_model_tokenizer=None):
-        super().__init__(selection_model, selection_model_tokenizer, verification_model,
-                         verification_model_tokenizer)
 
     def fetch_evidence(self, word: str) -> list[list[str]]:
         with FeverDocDB() as db:
@@ -146,14 +140,14 @@ class TestPipeline(ModelPipeline):
             processed_lines.append(text)
         return [processed_lines]
 
-    def select_evidence(self, claim: str, sentences: list[list[str]], top_k=3) -> list[str]:
-        sentences = sentences[0]  # in test case we only have one page
-        claim_model_input, sentences_model_input = self.build_selection_model_input(claim,
-                                                                                    sentences)
+    def select_evidence(self, claim: str, evidence_list: list[list[str]], top_k=3) -> list[str]:
+        sentences = evidence_list[0]  # in test case we only have one page
+        claim_model_input, sentences_model_input = self._build_selection_model_input(claim,
+                                                                                     sentences)
         with torch.no_grad():
             claim_embedding = self.selection_model(**claim_model_input)
             sentence_embeddings = self.selection_model(**sentences_model_input)
-            claim_similarities = F.cosine_similarity(claim_embedding, sentence_embeddings, dim=2)
+            claim_similarities = cosine_similarity(claim_embedding, sentence_embeddings, dim=2)
             top_indices = torch.topk(claim_similarities, k=top_k)[1].squeeze(0)
 
         return [sentences[index] for index in top_indices]
@@ -185,8 +179,8 @@ class WikiPipeline(ModelPipeline):
             with torch.no_grad():
                 claim_embedding = self.selection_model(**claim_model_input)
                 sentence_embeddings = self.selection_model(**sentences_model_input)
-                claim_similarities = F.cosine_similarity(claim_embedding,
-                                                         sentence_embeddings, dim=2).tolist()[0]
+                claim_similarities = cosine_similarity(claim_embedding,
+                                                       sentence_embeddings, dim=2).tolist()[0]
                 sentence_similarity = [(x, y) for x, y in zip(sentences, claim_similarities)]
                 sentence_similarities.extend(sentence_similarity)
 
