@@ -69,7 +69,7 @@ class ModelPipeline(Pipeline):
 
     def __init__(self, selection_model=None, selection_model_tokenizer=None,
                  verification_model=None, verification_model_tokenizer=None):
-        super(ModelPipeline, self).__init__()
+        super().__init__()
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         if not selection_model:
@@ -131,8 +131,8 @@ class TestPipeline(ModelPipeline):
 
     def __init__(self, selection_model=None, selection_model_tokenizer=None,
                  verification_model=None, verification_model_tokenizer=None):
-        super(TestPipeline, self).__init__(selection_model, selection_model_tokenizer,
-                                           verification_model, verification_model_tokenizer)
+        super().__init__(selection_model, selection_model_tokenizer, verification_model,
+                         verification_model_tokenizer)
 
     def fetch_evidence(self, word: str) -> list[list[str]]:
         with FeverDocDB() as db:
@@ -148,7 +148,8 @@ class TestPipeline(ModelPipeline):
 
     def select_evidence(self, claim: str, sentences: list[list[str]], top_k=3) -> list[str]:
         sentences = sentences[0]  # in test case we only have one page
-        claim_model_input, sentences_model_input = self.build_selection_model_input(claim, sentences)
+        claim_model_input, sentences_model_input = self.build_selection_model_input(claim,
+                                                                                    sentences)
         with torch.no_grad():
             claim_embedding = self.selection_model(**claim_model_input)
             sentence_embeddings = self.selection_model(**sentences_model_input)
@@ -163,14 +164,15 @@ class WikiPipeline(ModelPipeline):
 
     def __init__(self, selection_model=None, selection_model_tokenizer=None,
                  verification_model=None, verification_model_tokenizer=None):
-        super(WikiPipeline, self).__init__(selection_model, selection_model_tokenizer,
-                                           verification_model, verification_model_tokenizer)
+        super().__init__(selection_model, selection_model_tokenizer, verification_model,
+                         verification_model_tokenizer)
         self.wiki = Wikipedia()
 
     def fetch_evidence(self, word: str) -> list[list[str]]:
         return self.wiki.get_summaries(word, k=20)
 
-    def select_evidence(self, claim: str, evidence_list: list[list[str]], top_k=3, max_evidence_count=3) -> list[str]:
+    def select_evidence(self, claim: str, evidence_list: list[list[str]], top_k=3,
+                        max_evidence_count=3) -> list[str]:
         if len(evidence_list) > max_evidence_count:
             evidence_txts = [" ".join(txt) for txt in evidence_list]
             ranked_indices = rank_docs(claim, evidence_txts, k=max_evidence_count)
@@ -178,11 +180,13 @@ class WikiPipeline(ModelPipeline):
 
         sentence_similarities = []
         for sentences in evidence_list:
-            claim_model_input, sentences_model_input = self.build_selection_model_input(claim, sentences)
+            claim_model_input, sentences_model_input = self.build_selection_model_input(claim,
+                                                                                        sentences)
             with torch.no_grad():
                 claim_embedding = self.selection_model(**claim_model_input)
                 sentence_embeddings = self.selection_model(**sentences_model_input)
-                claim_similarities = F.cosine_similarity(claim_embedding, sentence_embeddings, dim=2).tolist()[0]
+                claim_similarities = F.cosine_similarity(claim_embedding,
+                                                         sentence_embeddings, dim=2).tolist()[0]
                 sentence_similarity = [(x, y) for x, y in zip(sentences, claim_similarities)]
                 sentence_similarities.extend(sentence_similarity)
 
@@ -204,7 +208,8 @@ if __name__ == "__main__":
              ('Ad-Rock', 'Ad-Rock is single.', 0),
              ('Gujarat', 'Gujarat is in Western Boston.', 0)]
 
-    tests = [('Albania', 'Albania is a member of NATO.', -1),  # is not in summary text for current wiki
+    tests1 = [('Albania', 'Albania is a member of NATO.', -1),
+             # is not in summary text for current wiki
              ('Spain', 'Spain is in Europe.', 1),
              ('Reds', 'Reds is an epic drama film.', 1),
              ('Unpredictable', 'Unpredictable was an album.', 1),
@@ -217,10 +222,10 @@ if __name__ == "__main__":
 
     pr_labels = []
     gt_labels = []
-    for word, claim, gt_label in tqdm(tests, desc='Verifying claim'):
-        factuality = pipeline.verify(word=word, claim=claim)
+    for word_test, claim_test, gt_label in tqdm(tests1, desc='Verifying claim'):
+        factuality_test = pipeline.verify(word=word_test, claim=claim_test)
         gt_labels.append(gt_label)
-        pr_labels.append(factuality)
+        pr_labels.append(factuality_test)
 
     acc = accuracy_score(gt_labels, pr_labels)
     f1_weighted = f1_score(gt_labels, pr_labels, average='weighted')

@@ -46,7 +46,6 @@ def recognize_definition(sentence: str, simple=False) -> bool:
         if subject_head.dep_ == "ROOT":
             # Check if the head of the subject is a verb from the given list
             if subject_head.lemma_.lower() in definitions_keywords:
-                first_token.children
                 return True
     return False
 
