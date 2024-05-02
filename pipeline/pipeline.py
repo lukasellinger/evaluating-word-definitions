@@ -168,20 +168,20 @@ class WikiPipeline(ModelPipeline):
     def select_evidence(self, claim: str, evidence_list: list[list[str]], top_k=3,
                         max_evidence_count=3) -> list[str]:
         if len(evidence_list) > max_evidence_count:
-            evidence_txts = [" ".join(txt) for txt in evidence_list]
-            ranked_indices = rank_docs(claim, evidence_txts, k=max_evidence_count)
+            ranked_indices = rank_docs(claim, [" ".join(txt) for txt in evidence_list],
+                                       k=max_evidence_count)
             evidence_list = [evidence_list[i] for i in ranked_indices]
 
         sentence_similarities = []
         for sentences in evidence_list:
-            claim_model_input, sentences_model_input = self.build_selection_model_input(claim,
-                                                                                        sentences)
+            claim_model_input, sentences_model_input = self._build_selection_model_input(claim,
+                                                                                         sentences)
             with torch.no_grad():
                 claim_embedding = self.selection_model(**claim_model_input)
                 sentence_embeddings = self.selection_model(**sentences_model_input)
                 claim_similarities = cosine_similarity(claim_embedding,
                                                        sentence_embeddings, dim=2).tolist()[0]
-                sentence_similarity = [(x, y) for x, y in zip(sentences, claim_similarities)]
+                sentence_similarity = list(zip(sentences, claim_similarities))
                 sentence_similarities.extend(sentence_similarity)
 
         sorted_sentences = sorted(sentence_similarities, key=lambda x: x[1], reverse=True)

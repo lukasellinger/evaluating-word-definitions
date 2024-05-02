@@ -1,18 +1,17 @@
 """Module for supervised contrastive loss.
 ref: https://arxiv.org/abs/2004.11362"""
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch import tensor
-
+from torch import nn
+from torch.nn.functional import cosine_similarity
 
 class SupConLoss(nn.Module):
     """Supervised Contrastive Loss."""
     def __init__(self, temperature=0.5):
-        super(SupConLoss, self).__init__()
+        super().__init__()
         self.temperature = temperature  # higher temperature leads to lower loss
 
-    def forward(self, anchor: tensor, references: tensor, labels: tensor) -> tensor:
+    def forward(self, anchor: torch.tensor, references: torch.tensor, labels: torch.tensor) -> (
+            torch.tensor):
         """
         Calculate the mean supervised contrastive loss over a batch. Each entry of the batch
         can have a different amount of positives and negatives. These are marked with the labels.
@@ -24,7 +23,7 @@ class SupConLoss(nn.Module):
         """
         pos_count = torch.sum(torch.eq(labels, 1), dim=-1)
 
-        similarity = F.cosine_similarity(anchor, references, dim=-1) / self.temperature
+        similarity = cosine_similarity(anchor, references, dim=-1) / self.temperature
         logits_max = torch.max(similarity, dim=-1)[0].detach()
         similarity = similarity - logits_max.unsqueeze(-1)
 

@@ -1,7 +1,6 @@
 from datetime import datetime
 
 import torch
-import gc
 import numpy as np
 import transformers
 
@@ -11,7 +10,7 @@ from sklearn.metrics import classification_report
 from torch.utils.data import DataLoader
 from torch import optim
 from tqdm import tqdm
-from transformers import AutoTokenizer, BigBirdModel, get_linear_schedule_with_warmup, AutoModel
+from transformers import AutoTokenizer, BigBirdModel
 from matplotlib import pyplot as plt
 from torch.cuda.amp import GradScaler, autocast
 

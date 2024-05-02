@@ -27,7 +27,7 @@ def rank_docs(query: str, docs: List[str], k=5, get_indices=True) -> List[str] |
     :return: List of most similar documents.
     """
     def preprocess(txt: str):
-         return txt.lower()
+        return txt.lower()
 
     query = preprocess(query)
     docs = [preprocess(doc) for doc in docs]
@@ -36,8 +36,7 @@ def rank_docs(query: str, docs: List[str], k=5, get_indices=True) -> List[str] |
     if get_indices:
         scores = np.array(bm25.get_scores(query.split(" ")))
         return np.flip(np.argsort(scores)[-k:]).tolist()
-    else:
-        return bm25.get_top_n(query.split(" "), docs, k)
+    return bm25.get_top_n(query.split(" "), docs, k)
 
 
 def calc_bin_stats(gt_labels: List, pr_labels: List, values: List) -> Dict:
@@ -65,11 +64,11 @@ def calc_bin_stats(gt_labels: List, pr_labels: List, values: List) -> Dict:
         bin_gt_labels = gt_labels[bin_mask]
 
         if len(bin_pr_labels) > 0:
-            acc = accuracy_score(bin_gt_labels, bin_pr_labels)
-            f1_weighted = f1_score(bin_gt_labels, bin_pr_labels, average='weighted')
-            f1_macro = f1_score(bin_gt_labels, bin_pr_labels, average='macro')
-            bin_stats[bin_upper] = {'acc': acc, 'f1_weighted': f1_weighted, 'f1_macro': f1_macro}
-
+            bin_stats[bin_upper] = {'acc': accuracy_score(bin_gt_labels, bin_pr_labels),
+                                    'f1_weighted': f1_score(bin_gt_labels, bin_pr_labels,
+                                                            average='weighted'),
+                                    'f1_macro': f1_score(bin_gt_labels, bin_pr_labels,
+                                                         average='macro')}
     return bin_stats
 
 

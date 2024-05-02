@@ -9,6 +9,8 @@ from spacy_utils import split_into_sentences
 
 
 class Wikipedia:
+    """Wrapper for wikipedia api calls."""
+
     USER_AGENT = 'summaryBot (lu.ellinger@gmx.de)'
     URL = "https://en.wikipedia.org/w/api.php"
 

@@ -1,3 +1,5 @@
+"""Test for german dpr dataset."""
+
 from datasets import load_dataset
 
 # we can concatenate train + test since we do not train on
