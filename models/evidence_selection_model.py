@@ -55,3 +55,16 @@ class EvidenceSelectionModel(nn.Module):
             torch.save(self.fc.state_dict(), f'{name}_fc.pth')
         else:
             self.model.save_pretrained(f'{name}')
+            
+            
+class DummyEvidenceSelectionModel(EvidenceSelectionModel):
+    """Dummy Test Model."""
+    
+    def __init__(self):
+        super().__init__(model=None)
+
+    def forward(self, input_ids=None, attention_mask=None, sentence_mask=None):
+        """Return tensor with ones of shape (input_ids.shape[0], 1, 1)."""
+        if sentence_mask is None:
+            sentence_mask = torch.ones((input_ids.shape[0], 1, 1))
+        return torch.ones((sentence_mask.shape[0], sentence_mask.shape[1], 1))

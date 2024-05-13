@@ -2,14 +2,16 @@
 import torch
 from datasets import Dataset
 from sklearn.metrics import accuracy_score, f1_score, recall_score, classification_report
+from torch.nn import BCELoss
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM, BigBirdModel
+from transformers import AutoTokenizer, BigBirdModel
 
 from config import DB_URL
-from dataset.def_dataset import DefinitionDataset
+from dataset.def_dataset import DefinitionDataset, SentenceContextDataset, \
+    SentenceContextContrastiveDataset
 from losses.supcon import SupConLoss
-from models.evidence_selection_model import EvidenceSelectionModel
+from models.evidence_selection_model import EvidenceSelectionModel, DummyEvidenceSelectionModel
 import torch.nn.functional as F
 
 from utils import calc_bin_stats, plot_graph
@@ -28,16 +30,23 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 #model = AutoModel.from_pretrained('sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
 
 model_name = 'google/bigbird-roberta-large'
-model = BigBirdModel.from_pretrained(model_name)
+#model = BigBirdModel.from_pretrained(model_name)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-selection_model = EvidenceSelectionModel(model, feed_forward=True).to(device)
-train_dataset = DefinitionDataset(dataset, tokenizer, mode='validation', model='evidence_selection')
-train_dataloader = DataLoader(train_dataset, shuffle=True,
-                              collate_fn=train_dataset.collate_fn,
-                              batch_size=10)
-criterion = SupConLoss()
+#selection_model = EvidenceSelectionModel(model, feed_forward=False).to(device)
+selection_model = DummyEvidenceSelectionModel()
 
+test = SentenceContextContrastiveDataset(dataset, tokenizer)
+train_dataloader = DataLoader(test, shuffle=True,
+                              collate_fn=test.collate_fn,
+                              batch_size=10)
+
+#train_dataset = DefinitionDataset(dataset, tokenizer, mode='validation', model='evidence_selection')
+#train_dataloader = DataLoader(train_dataset, shuffle=True,
+#                              collate_fn=train_dataset.collate_fn,
+#                              batch_size=10)
+criterion = SupConLoss()
+#criterion = BCELoss()
 
 def convert_to_labels(similarities, labels, k=2):
     top_indices = torch.topk(similarities, k=min(k, similarities.size(1)))[1]
@@ -66,10 +75,10 @@ for batch in tqdm(train_dataloader):
                                               attention_mask=model_input['attention_mask'],
                                               sentence_mask=model_input['sentence_mask'])
 
-        loss = criterion(claim_embedding, sentence_embeddings, labels=batch['labels'])
-
         claim_similarities = F.cosine_similarity(claim_embedding, sentence_embeddings, dim=2)
         claim_similarities = claim_similarities.nan_to_num(nan=float('-inf'))
+
+        loss = criterion(claim_embedding, sentence_embeddings, labels=batch['labels'])
 
     predicted, true_labels, top_k_hits = convert_to_labels(claim_similarities, batch['labels'], k=3)
     gt_labels.extend(true_labels.tolist())

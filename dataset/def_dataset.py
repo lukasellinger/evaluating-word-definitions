@@ -4,7 +4,7 @@
 
 import re
 from enum import Enum
-from typing import Tuple
+from typing import Tuple, List
 
 import torch
 from torch.utils.data import Dataset
@@ -13,11 +13,14 @@ from utils import convert_to_unicode
 
 
 class Fact(Enum):
+    """Represents the types a fact can have."""
+
     SUPPORTS = 0
     REFUTES = 2
     NOT_ENOUGH_INFO = 1  # TODO data needed, FEVER has empty documents
 
-    def to_factuality(self):
+    def to_factuality(self) -> int:
+        """Convert itself to a measurement."""
         factuality = {
             Fact.SUPPORTS: 1,
             Fact.REFUTES: 0,
@@ -56,7 +59,53 @@ def split_text(line: str) -> Tuple[str, str]:
     return line_number, text
 
 
+def process_data(data, max_length=2000):
+    """Filters text longer than max_length words."""
+    def filter_txt_length(text):
+        text = process_sentence(text)
+        return len(' '.join(text).split()) < max_length
+
+    return data.filter(lambda i: filter_txt_length(i['text']))
+
+
+def build_attention_masks(lst: List[List], pad_token=0, attention_mask_pad=0) -> List[List]:
+    """Pad lst inline with pad_token and return attention mask padded with attention_mask_pad."""
+    attention_masks = []
+    max_length = max(len(i) for i in lst)
+    for i in lst:
+        length = len(i)
+        pad_length = max_length - length
+        i += [pad_token] * pad_length
+        attention_mask = [1] * length + [attention_mask_pad] * pad_length
+        attention_masks.append(attention_mask)
+    return attention_masks
+
+
+def pad(lst: List[List], pad_token=0):
+    """Pad lst inline with pad_token."""
+    max_length = max(len(i) for i in lst)
+    for i in lst:
+        length = len(i)
+        pad_length = max_length - length
+        i += [pad_token] * pad_length
+
+
+def pad_nested_lists(lst: List[List[List]], pad_token=0):
+    """Pad nested lst inline with pad_token."""
+    max_sentence_count = max(len(i) for i in lst)
+    max_sentence_length = max(len(item) for sublist in lst for item in sublist)
+
+    for sublist in lst:
+        sublist.extend([[pad_token] for _ in range(max_sentence_count - len(sublist))])
+
+        for subsublist in sublist:
+            subsublist += [pad_token] * (max_sentence_length - len(subsublist))
+
+
 class DefinitionDataset(Dataset):
+    """Dataset for Definitions. One can choose for which model the dataset should be built.
+    Each entry encodes the whole document at once."""
+
     def __init__(self, data, tokenizer, mode="train", model=None):
         if model in ['claim_verification', 'evidence_selection']:
             self.model = model
@@ -66,20 +115,13 @@ class DefinitionDataset(Dataset):
         self.mode = mode
         self.tokenizer = tokenizer
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.data = self.process_data(data)
+        self.data = process_data(data)
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
         return self.data[idx]
-
-    def process_data(self, data):
-        def filter_txt_length(text):
-            text = process_sentence(text)
-            return len(' '.join(text).split()) < 2000
-
-        return data.filter(lambda i: filter_txt_length(i['text']))
 
     def collate_fn(self, batch):
         if self.model == 'claim_verification':
@@ -121,8 +163,8 @@ class DefinitionDataset(Dataset):
             all_input_ids.append(encoded_sequence)
             all_labels.append(Fact[data['label']].value)
             hypothesis_lengths.append(len(hypothesis))
-        attention_masks = self.build_attention_masks(all_input_ids,
-                                                     pad_token=self.tokenizer.pad_token_id)
+        attention_masks = build_attention_masks(all_input_ids,
+                                                pad_token=self.tokenizer.pad_token_id)
 
         model_input = {'input_ids': torch.tensor(all_input_ids).to(self.device),
                        'attention_mask': torch.tensor(attention_masks).to(self.device)}
@@ -161,12 +203,12 @@ class DefinitionDataset(Dataset):
             all_labels.append(labels)
             all_sentence_mask.append(sentence_masks)
 
-        claim_attention_masks = self.build_attention_masks(all_claim_input_ids,
-                                                           pad_token=self.tokenizer.pad_token_id)
-        self.pad(all_labels, pad_token=-1)
-        self.pad_nested_lists(all_sentence_mask, pad_token=0)
-        attention_masks = self.build_attention_masks(all_input_ids,
-                                                     pad_token=self.tokenizer.pad_token_id)
+        claim_attention_masks = build_attention_masks(all_claim_input_ids,
+                                                      pad_token=self.tokenizer.pad_token_id)
+        pad(all_labels, pad_token=-1)
+        pad_nested_lists(all_sentence_mask, pad_token=0)
+        attention_masks = build_attention_masks(all_input_ids,
+                                                pad_token=self.tokenizer.pad_token_id)
 
         model_input = {'claim_input_ids': torch.tensor(all_claim_input_ids).to(self.device),
                        'claim_attention_mask': torch.tensor(claim_attention_masks).to(self.device),
@@ -176,33 +218,209 @@ class DefinitionDataset(Dataset):
         labels = torch.tensor(all_labels).to(self.device)
         return model_input, labels
 
-    @staticmethod
-    def build_attention_masks(list_of_lists, pad_token=0, attention_mask_pad=0):
-        attention_masks = []
-        max_length = max(len(i) for i in list_of_lists)
-        for i in list_of_lists:
-            length = len(i)
-            pad_length = max_length - length
-            i += [pad_token] * pad_length
-            attention_mask = [1] * length + [attention_mask_pad] * pad_length
-            attention_masks.append(attention_mask)
-        return attention_masks
+
+class SentenceContextDataset(Dataset):
+    """Sentence Dataset. Each entry is a sentence with its surrounding context."""
+
+    def __init__(self, data, tokenizer, mode="train"):
+        self.mode = mode
+        self.tokenizer = tokenizer
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        data = process_data(data)
+        self.data = self.build_context(data)
 
     @staticmethod
-    def pad(list_of_lists, pad_token=0):
-        max_length = max(len(i) for i in list_of_lists)
-        for i in list_of_lists:
-            length = len(i)
-            pad_length = max_length - length
-            i += [pad_token] * pad_length
+    def clean_lines(lines: str) -> list[tuple[str, str]]:
+        """Cleans the lines and returns them in a list of tuples (line_number, text)."""
+        processed_lines = []
+        for line in lines.split('\n'):
+            processed_line = process_sentence(line)
+            line_number, text = split_text(processed_line)
+            processed_lines.append((line_number, text))
+        return processed_lines
 
-    @staticmethod
-    def pad_nested_lists(lst, pad_token=0):
-        max_sentence_count = max(len(i) for i in lst)
-        max_sentence_length = max(len(item) for sublist in lst for item in sublist)
+    def build_context(self, data):
+        new_data = []
 
-        for sublist in lst:
-            sublist.extend([[pad_token] for i in range(max_sentence_count - len(sublist))])
+        for entry in data:
+            evidence_lines = entry['evidence_lines'].split(',')
+            lines = process_lines(entry['lines'])
 
-            for subsublist in sublist:
-                subsublist += [pad_token] * (max_sentence_length - len(subsublist))
+            processed_lines = self.clean_lines(lines)
+            for i, (line_number, line) in enumerate(processed_lines):
+                new_entry = {'claim': entry['claim'],
+                             'id': entry['id'],
+                             'document_id': entry['document_id'],
+                             'text': entry['text']}
+
+                if line_number in evidence_lines:
+                    new_entry['label'] = 1
+                else:
+                    new_entry['label'] = 0
+
+                new_entry['lines'] = []
+                if i > 0:
+                    new_entry['lines'].append(processed_lines[i - 1][1])
+
+                new_entry['lines'].append(processed_lines[i][1])
+                new_entry['idx'] = 1 if i > 0 else 0  # index of sentence to attend to
+
+                if i < len(processed_lines) - 1:
+                    new_entry['lines'].append(processed_lines[i + 1][1])
+
+                new_data.append(new_entry)
+        return new_data
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx]
+
+    def collate_fn(self, batch):
+        all_claim_input_ids, all_input_ids, all_labels, all_sentence_mask = [], [], [], []
+
+        for data in batch:
+            encoded_claim = self.tokenizer.encode(data['claim'])
+            encoded_sequence = []
+            sentence_mask = []
+            for i, line in enumerate(data['lines']):
+                encoded_line = self.tokenizer.encode(line)[1:-1]  # + [1]
+                encoded_sequence += encoded_line
+
+                if i == data['idx']:
+                    sentence_mask += [1] * len(encoded_line)
+                else:
+                    sentence_mask += [0] * len(encoded_line)
+
+                encoded_sequence.append(self.tokenizer.sep_token_id)
+                sentence_mask.append(0)
+
+            all_claim_input_ids.append(encoded_claim)
+            all_input_ids.append(encoded_sequence)
+            all_labels.append(data['label'])
+            all_sentence_mask.append(sentence_mask)
+
+        claim_attention_masks = build_attention_masks(all_claim_input_ids,
+                                                      pad_token=self.tokenizer.pad_token_id)
+        pad(all_sentence_mask, pad_token=0)
+        attention_masks = build_attention_masks(all_input_ids,
+                                                pad_token=self.tokenizer.pad_token_id)
+
+        model_input = {'claim_input_ids': torch.tensor(all_claim_input_ids).to(self.device),
+                       'claim_attention_mask': torch.tensor(claim_attention_masks).to(self.device),
+                       'input_ids': torch.tensor(all_input_ids).to(self.device),
+                       'attention_mask': torch.tensor(attention_masks).to(self.device),
+                       'sentence_mask': torch.tensor(all_sentence_mask).unsqueeze(1).to(self.device)}
+        labels = torch.tensor(all_labels).to(self.device)
+
+        if self.mode == "train":
+            return {"model_input": model_input, "labels": labels}
+        elif self.mode == "validation":
+            documents = [i["document_id"] for i in batch]
+            claim_ids = [i["id"] for i in batch]
+            claim_lengths = [len(i["claim"]) for i in batch]
+            doc_lengths = [len(i["text"]) for i in batch]
+
+            return {"model_input": model_input, "labels": labels, "documents": documents,
+                    "claim_id": claim_ids, "claim_length": torch.tensor(claim_lengths),
+                    "doc_length": torch.tensor(doc_lengths)}
+
+
+class SentenceContextContrastiveDataset(SentenceContextDataset):
+    """Contrastive sentence dataset. Each entry contains a single encoding for each sentence
+    surrounded by its context."""
+
+    def build_context(self, data):
+        new_data = []
+
+        for entry in data:
+            new_entry = {'claim': entry['claim'],
+                         'id': entry['id'],
+                         'document_id': entry['document_id'],
+                         'text': entry['text'],
+                         'labels': [],
+                         'sentences': [],
+                         'indices': []}
+
+            evidence_lines = entry['evidence_lines'].split(',')
+            lines = process_lines(entry['lines'])
+            processed_lines = self.clean_lines(lines)
+            for i, (line_number, line) in enumerate(processed_lines):
+                if line_number in evidence_lines:
+                    new_entry['labels'].append(1)
+                else:
+                    new_entry['labels'].append(0)
+
+                sentence = []
+                if i > 0:
+                    sentence.append(processed_lines[i - 1][1])
+
+                sentence.append(processed_lines[i][1])
+                new_entry['indices'].append(1 if i > 0 else 0)  # index of sentence to attend to
+
+                if i < len(processed_lines) - 1:
+                    sentence.append(processed_lines[i + 1][1])
+                new_entry['sentences'].append(sentence)
+            new_data.append(new_entry)
+        return new_data
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx]
+
+    def collate_fn(self, batch):
+        all_claim_input_ids, all_input_ids, all_labels, all_sentence_mask = [], [], [], []
+
+        for data in batch:
+            encoded_claim = self.tokenizer.encode(data['claim'])
+            encoded_sequence, sentence_masks, labels = [], [], []
+            for context, label, idx in zip(data['sentences'], data['labels'], data['indices']):
+                sentence_mask = []
+                for i, sentence in enumerate(context):
+                    encoded_line = self.tokenizer.encode(sentence)[1:-1]  # + [1]
+                    encoded_sequence += encoded_line
+
+                    if i == idx:
+                        sentence_mask += [1] * len(encoded_line)
+                    else:
+                        sentence_mask += [0] * len(encoded_line)
+
+                    encoded_sequence.append(self.tokenizer.sep_token_id)
+                    sentence_mask.append(0)
+                sentence_masks.append(sentence_mask)
+                labels.append(label)
+
+            all_claim_input_ids.append(encoded_claim)
+            all_input_ids.append(encoded_sequence)
+            all_labels.append(labels)
+            all_sentence_mask.append(sentence_masks)
+
+        pad(all_labels, pad_token=-1)
+        claim_attention_masks = build_attention_masks(all_claim_input_ids,
+                                                      pad_token=self.tokenizer.pad_token_id)
+        pad_nested_lists(all_sentence_mask, pad_token=0)
+        attention_masks = build_attention_masks(all_input_ids,
+                                                pad_token=self.tokenizer.pad_token_id)
+
+        model_input = {'claim_input_ids': torch.tensor(all_claim_input_ids).to(self.device),
+                       'claim_attention_mask': torch.tensor(claim_attention_masks).to(self.device),
+                       'input_ids': torch.tensor(all_input_ids).to(self.device),
+                       'attention_mask': torch.tensor(attention_masks).to(self.device),
+                       'sentence_mask': torch.tensor(all_sentence_mask).to(self.device)}
+        labels = torch.tensor(all_labels).to(self.device)
+
+        if self.mode == "train":
+            return {"model_input": model_input, "labels": labels}
+        elif self.mode == "validation":
+            documents = [i["document_id"] for i in batch]
+            claim_ids = [i["id"] for i in batch]
+            claim_lengths = [len(i["claim"]) for i in batch]
+            doc_lengths = [len(i["text"]) for i in batch]
+
+            return {"model_input": model_input, "labels": labels, "documents": documents,
+                    "claim_id": claim_ids, "claim_length": torch.tensor(claim_lengths),
+                    "doc_length": torch.tensor(doc_lengths)}

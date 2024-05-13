@@ -9,7 +9,6 @@
 """Documents, in a sqlite database."""
 
 import sqlite3
-import unicodedata
 
 from config import PROJECT_DIR
 
@@ -50,3 +49,12 @@ class FeverDocDB:
         result = cursor.fetchone()
         cursor.close()
         return result if result is None else result[0]
+
+    def read(self, statement, params=()):
+        """Read statement from the database."""
+        cursor = self.connection.cursor()
+        cursor.execute(statement, params)
+        results = cursor.fetchall()
+        cursor.close()
+        return results
+

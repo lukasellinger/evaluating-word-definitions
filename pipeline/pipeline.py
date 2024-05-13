@@ -1,4 +1,6 @@
 """Pipelines for the claim verification process."""
+from typing import List
+
 import torch
 from sklearn.metrics import accuracy_score, f1_score
 from tqdm import tqdm
@@ -16,22 +18,30 @@ from utils import rank_docs
 class Pipeline:
     """General Pipeline. Implement fetch_evidence, select_evidence, verify_claim."""
 
-    def verify(self, word: str, claim: str) -> float:
+    def verify(self, word: str, claim: str, pooling=False) -> float | List[Fact]:
         """
         Verify a claim related to a word.
         :param word: Word associated to the claim.
         :param claim: Claim to be verified.
-        :return: percentage of true facts inside the claim.
+        :param pooling: If True, does mean pooling (Supported facts counts 1, others 0)
+        :return: percentage of true facts inside the claim if pooling. Else list containing
+        factualities for each atomic fact.
         """
         ev_sents = self.fetch_evidence(word)
         atomic_claims = self.process_claim(claim)
 
-        factuality = 0
+        total_factuality = 0
+        factualities = []
         for atomic_claim in atomic_claims:
             selected_ev_sents = self.select_evidence(atomic_claim, ev_sents)
-            factuality += self.verify_claim(atomic_claim, selected_ev_sents)
+            factuality = self.verify_claim(atomic_claim, selected_ev_sents)
 
-        return factuality / len(atomic_claims)
+            if pooling:
+                total_factuality += 1 if factuality == Fact.SUPPORTS else 0
+            else:
+                factualities.append(factuality)
+
+        return total_factuality / len(atomic_claims) if pooling else factualities
 
     @staticmethod
     def process_claim(claim: str) -> list[str]:
@@ -53,12 +63,12 @@ class Pipeline:
         :return: List of sentences, possibly containing evidence.
         """
 
-    def verify_claim(self, claim: str, sentences: list[str]) -> int:
+    def verify_claim(self, claim: str, sentences: list[str]) -> Fact:
         """
         Verify the claim using sentences as evidence.
         :param claim: Claim to be verified.
         :param sentences: Sentences to use as evidence.
-        :return: 1, if claim can be verified, else 0.
+        :return: either Fact.SUPPORTS, Fact.REFUTES or Fact.NOT_ENOUGH_INFO
         """
 
 
@@ -115,7 +125,7 @@ class ModelPipeline(Pipeline):
             output = self.verification_model(**model_inputs)
             predicted = torch.softmax(output['logits'], dim=-1)
             predicted = torch.argmax(predicted, dim=-1).item()
-        return Fact(predicted).to_factuality()
+        return Fact(predicted)
 
     def _build_verification_model_input(self, claim: str, sentences: list[str]):
         hypothesis = ' '.join(sentences)
@@ -140,6 +150,16 @@ class TestPipeline(ModelPipeline):
             processed_lines.append(text)
         return [processed_lines]
 
+    @staticmethod
+    def process_claim(claim: str) -> list[str]:
+        with FeverDocDB() as db:
+            facts = db.read("""SELECT DISTINCT af.fact
+                                         FROM atomic_facts af 
+                                         JOIN def_dataset dd ON af.claim_id = dd.id
+                                         WHERE dd.claim = ?""", params=(claim,))
+        return [fact[0] for fact in facts] if facts else [claim]
+
+
     def select_evidence(self, claim: str, evidence_list: list[list[str]], top_k=3) -> list[str]:
         sentences = evidence_list[0]  # in test case we only have one page
         claim_model_input, sentences_model_input = self._build_selection_model_input(claim,
@@ -148,7 +168,8 @@ class TestPipeline(ModelPipeline):
             claim_embedding = self.selection_model(**claim_model_input)
             sentence_embeddings = self.selection_model(**sentences_model_input)
             claim_similarities = cosine_similarity(claim_embedding, sentence_embeddings, dim=2)
-            top_indices = torch.topk(claim_similarities, k=top_k)[1].squeeze(0)
+            top_indices = torch.topk(claim_similarities,
+                                     k=min(top_k, claim_similarities.size(1)))[1].squeeze(0)
 
         return [sentences[index] for index in top_indices]
 
@@ -189,7 +210,7 @@ class WikiPipeline(ModelPipeline):
 
 
 if __name__ == "__main__":
-    pipeline = WikiPipeline()
+    pipeline = TestPipeline()
 
     tests = [('Albania', 'Albania is a member of NATO.', 1),
              ('Spain', 'Spain is in Europe.', 1),
@@ -216,10 +237,11 @@ if __name__ == "__main__":
 
     pr_labels = []
     gt_labels = []
-    for word_test, claim_test, gt_label in tqdm(tests1, desc='Verifying claim'):
+    for word_test, claim_test, gt_label in tqdm(tests, desc='Verifying claim'):
         factuality_test = pipeline.verify(word=word_test, claim=claim_test)
-        gt_labels.append(gt_label)
-        pr_labels.append(factuality_test)
+
+        gt_labels += [gt_label] * len(factuality_test)
+        pr_labels.extend([fact.to_factuality() for fact in factuality_test])
 
     acc = accuracy_score(gt_labels, pr_labels)
     f1_weighted = f1_score(gt_labels, pr_labels, average='weighted')

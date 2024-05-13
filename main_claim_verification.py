@@ -1,4 +1,4 @@
-"""Main evidence selection script."""
+"""Main claim verification script."""
 import torch
 from datasets import Dataset
 from matplotlib import pyplot as plt
@@ -12,13 +12,23 @@ from dataset.def_dataset import DefinitionDataset
 from models.claim_verification_model import ClaimVerificationModel
 from utils import calc_bin_stats, plot_graph
 
-dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id, docs.text, 
+# dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id, docs.text,
+#                                          docs.lines, group_concat(dd.evidence_sentence_id) as evidence_lines
+#                                   from def_dataset dd
+#                                     join documents docs on docs.document_id = dd.evidence_wiki_url
+#                                   where set_type='train' and length(docs.text) < 800
+#                                   group by dd.id, evidence_annotation_id, evidence_wiki_url
+#                                   limit 30""",
+#                            con=DB_URL)
+
+dataset = Dataset.from_sql("""select dd.id, dd.claim as claim, dd.label, docs.document_id, docs.text, 
                                          docs.lines, group_concat(dd.evidence_sentence_id) as evidence_lines
                                   from def_dataset dd
                                     join documents docs on docs.document_id = dd.evidence_wiki_url
+                                    join claim_translations ct on dd.id = ct.claim_id
                                   where set_type='train' and length(docs.text) < 800
                                   group by dd.id, evidence_annotation_id, evidence_wiki_url
-                                  limit 30""",
+                                  limit 1000""",
                            con=DB_URL)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"

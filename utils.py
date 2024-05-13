@@ -39,6 +39,12 @@ def rank_docs(query: str, docs: List[str], k=5, get_indices=True) -> List[str] |
     return bm25.get_top_n(query.split(" "), docs, k)
 
 
+def convert_document_id_to_word(document_id: str) -> str:
+    """Converts a document_id to a word we would search for."""
+    word = document_id.split('-LRB-')[0]
+    return word.replace('_', ' ')
+
+
 def calc_bin_stats(gt_labels: List, pr_labels: List, values: List) -> Dict:
     """
     Calculate the stats for each bin. Bins a separated using sturgess rule.
