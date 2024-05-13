@@ -241,3 +241,5 @@ fabric.properties
 *.db
 
 /wiki-pages
+
+*.safetensors
