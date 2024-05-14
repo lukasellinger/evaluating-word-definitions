@@ -1,4 +1,5 @@
 """General utils for processing."""
+import re
 from typing import List, Dict
 
 import numpy as np
@@ -86,3 +87,33 @@ def plot_graph(keys, values, x_label='', y_label='', title=''):
     plt.title(title)
     plt.xticks(keys, rotation=45)
     plt.show()
+
+
+def build_fever_instance(label, evidence, evidence_doc, predicted_label, predicted_evidence):
+    """Build instance to conform to fever scorer."""
+    evidence = [
+        [
+            [None, None, evidence_doc, int(line)]
+            for line in group.split(',')
+        ]
+        for group in evidence
+    ]
+    predicted_evidence = [[page, int(line)] for page, line in predicted_evidence]
+
+    instance = {'label': label,
+                'predicted_label': predicted_label.name,
+                'predicted_evidence': predicted_evidence,
+                'evidence': evidence}
+    return instance
+
+
+def title_to_db_page(txt: str, parentheses=True) -> str:
+    """Converts a title to how it is stored in the db."""
+    txt = txt.replace(' ', '_')
+    if parentheses:
+        txt = txt.replace('(', '-LRB-')
+        txt = txt.replace(')', '-RRB-')
+        txt = txt.replace(':', '-COLON-')
+        txt = txt.replace('-', '--')
+
+    return txt

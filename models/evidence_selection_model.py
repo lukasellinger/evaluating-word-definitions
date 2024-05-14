@@ -21,11 +21,12 @@ class EvidenceSelectionModel(nn.Module):
                 param.requires_grad = False
             self.fc = nn.Linear(1024, out_features)
 
-    def forward(self, input_ids=None, attention_mask=None, sentence_mask=None):
+    def forward(self, input_ids=None, attention_mask=None, sentence_mask=None, **kwargs):
         """Forward function."""
         if sentence_mask is None:
-            # keep in mind that here cls and end token are inside the mask.
             sentence_mask = attention_mask.unsqueeze(dim=1)
+            #sentence_mask = torch.zeros_like(attention_mask.unsqueeze(dim=1))
+            #sentence_mask[:, :, 0] = 1  # try only cls
 
         outputs = self.model(input_ids=input_ids,
                              attention_mask=attention_mask)['last_hidden_state']

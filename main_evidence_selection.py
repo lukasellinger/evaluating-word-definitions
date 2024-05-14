@@ -1,11 +1,12 @@
 """Main evidence selection script."""
 import torch
 from datasets import Dataset
+from sentence_transformers import SentenceTransformer
 from sklearn.metrics import accuracy_score, f1_score, recall_score, classification_report
 from torch.nn import BCELoss
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import AutoTokenizer, BigBirdModel
+from transformers import AutoTokenizer, BigBirdModel, AutoModel
 
 from config import DB_URL
 from dataset.def_dataset import DefinitionDataset, SentenceContextDataset, \
@@ -29,22 +30,23 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 #tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
 #model = AutoModel.from_pretrained('sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
 
-model_name = 'google/bigbird-roberta-large'
+tokenizer = AutoTokenizer.from_pretrained('Snowflake/snowflake-arctic-embed-m-long')
+model = AutoModel.from_pretrained('Snowflake/snowflake-arctic-embed-m-long', trust_remote_code=True, add_pooling_layer=False, safe_serialization=True)
+#model_name = 'google/bigbird-roberta-large'
 #model = BigBirdModel.from_pretrained(model_name)
-tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-#selection_model = EvidenceSelectionModel(model, feed_forward=False).to(device)
-selection_model = DummyEvidenceSelectionModel()
+selection_model = EvidenceSelectionModel(model, feed_forward=False).to(device)
+#selection_model = DummyEvidenceSelectionModel()
 
-test = SentenceContextContrastiveDataset(dataset, tokenizer)
-train_dataloader = DataLoader(test, shuffle=True,
-                              collate_fn=test.collate_fn,
+#test = SentenceContextContrastiveDataset(dataset, tokenizer)
+##train_dataloader = DataLoader(test, shuffle=True,
+ #                             collate_fn=test.collate_fn,
+ #                             batch_size=10)
+
+train_dataset = DefinitionDataset(dataset, tokenizer, mode='validation', model='evidence_selection')
+train_dataloader = DataLoader(train_dataset, shuffle=True,
+                              collate_fn=train_dataset.collate_fn,
                               batch_size=10)
-
-#train_dataset = DefinitionDataset(dataset, tokenizer, mode='validation', model='evidence_selection')
-#train_dataloader = DataLoader(train_dataset, shuffle=True,
-#                              collate_fn=train_dataset.collate_fn,
-#                              batch_size=10)
 criterion = SupConLoss()
 #criterion = BCELoss()
 

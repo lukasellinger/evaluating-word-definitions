@@ -25,29 +25,29 @@ def check_predicted_evidence_format(instance):
             "Predicted evidence must be a list of (page<string>,line<int>) lists"
 
 
-def is_correct_label(instance):
-    return instance["label"].upper() == instance["predicted_label"].upper()
+def is_correct_label(instance, use_gold_labels=False):
+    return instance["label"].upper() == instance["predicted_label"].upper() or use_gold_labels
 
 
-def is_strictly_correct(instance, max_evidence=None):
-    #Strict evidence matching is only for NEI class
+def is_strictly_correct(instance, max_evidence=None, use_gold_labels=False):
+    # Strict evidence matching is only for NEI class
     check_predicted_evidence_format(instance)
 
-    if instance["label"].upper() != "NOT ENOUGH INFO" and is_correct_label(instance):
+    if instance["label"].upper() != "NOT ENOUGH INFO" and is_correct_label(instance, use_gold_labels):
         assert 'predicted_evidence' in instance, "Predicted evidence must be provided for strict scoring"
 
         if max_evidence is None:
             max_evidence = len(instance["predicted_evidence"])
 
         for evidence_group in instance["evidence"]:
-            #Filter out the annotation ids. We just want the evidence page and line number
+            # Filter out the annotation ids. We just want the evidence page and line number
             actual_sentences = [[e[2], e[3]] for e in evidence_group]
-            #Only return true if an entire group of actual sentences is in the predicted sentences
+            # Only return true if an entire group of actual sentences is in the predicted sentences
             if all([actual_sent in instance["predicted_evidence"][:max_evidence] for actual_sent in actual_sentences]):
                 return True
 
-    #If the class is NEI, we don't score the evidence retrieval component
-    elif instance["label"].upper() == "NOT ENOUGH INFO" and is_correct_label(instance):
+    # If the class is NEI, we don't score the evidence retrieval component
+    elif instance["label"].upper() == "NOT ENOUGH INFO" and is_correct_label(instance, use_gold_labels):
         return True
 
     return False
@@ -92,7 +92,7 @@ def evidence_macro_recall(instance, max_evidence=None):
     return 0.0, 0.0
 
 
-def fever_score(predictions, actual=None, max_evidence=5):
+def fever_score(predictions, actual=None, max_evidence=5, use_gold_labels=False):
     correct = 0
     strict = 0
 
@@ -105,7 +105,7 @@ def fever_score(predictions, actual=None, max_evidence=5):
     for idx, instance in enumerate(predictions):
         assert 'predicted_evidence' in instance.keys(), 'evidence must be provided for the prediction'
 
-        #If it's a blind test set, we need to copy in the values from the actual data
+        # If it's a blind test set, we need to copy in the values from the actual data
         if 'evidence' not in instance or 'label' not in instance:
             assert actual is not None, 'in blind evaluation mode, actual data must be provided'
             assert len(actual) == len(predictions), 'actual data and predicted data length must match'
@@ -115,10 +115,10 @@ def fever_score(predictions, actual=None, max_evidence=5):
 
         assert 'evidence' in instance.keys(), 'gold evidence must be provided'
 
-        if is_correct_label(instance):
+        if is_correct_label(instance, use_gold_labels):
             correct += 1.0
 
-            if is_strictly_correct(instance, max_evidence):
+            if is_strictly_correct(instance, max_evidence, use_gold_labels):
                 strict += 1.0
 
         macro_prec = evidence_macro_precision(instance, max_evidence)

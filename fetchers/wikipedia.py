@@ -1,5 +1,5 @@
 """Module for making api call to wikipedia."""
-from typing import List
+from typing import List, Tuple
 
 import requests
 from bs4 import BeautifulSoup
@@ -23,7 +23,7 @@ class Wikipedia:
     def _get_response(self, params) -> Response:
         return self.session.get(url=self.URL, params=params)
 
-    def get_summaries(self, word: str, k: int = 20) -> List[List[str]]:
+    def get_summaries(self, word: str, k: int = 20) -> List[Tuple[str, List[str]]]:
         """
         Get the summary of the top k most similar (according to wikipedia search) articles of a word
         on wikipedia.
@@ -54,7 +54,7 @@ class Wikipedia:
 
         return [entry.get('pageid') for entry in data.get('query', {}).get('search', [])]
 
-    def get_summaries_from_page_ids(self, page_ids: List[int]) -> List[List[str]]:
+    def get_summaries_from_page_ids(self, page_ids: List[int]) -> List[Tuple[str, List[str]]]:
         """
         Get the summary of the pages of page_ids on wikipedia.
         :param page_ids: Page_ids to get the summaries of.
@@ -76,14 +76,16 @@ class Wikipedia:
 
         summaries = []
         for _, value in data.get('query', {}).get('pages', {}).items():
-            if summary := value.get('extract'):
+            if value.get('extract') and value.get('title'):
+                summary = str(value.get('extract'))
+                title = str(value.get('title'))
                 soup = BeautifulSoup(summary, 'html.parser')
                 text = soup.get_text()
                 text = text.replace('\xa0', ' ').strip()
-                summaries.append(split_into_sentences(text))
+                summaries.append((title, split_into_sentences(text)))   # TODO line numbers
         return summaries
 
 
 if __name__ == "__main__":
     wiki = Wikipedia()
-    print(wiki.get_summaries('Reds', k=20))
+    print(wiki.get_summaries("6'''-Hydroxyneomycin_C_oxidase", k=20))

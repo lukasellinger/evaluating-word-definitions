@@ -1,5 +1,5 @@
 """Pipelines for the claim verification process."""
-from typing import List
+from typing import List, Dict, Tuple
 
 import torch
 from sklearn.metrics import accuracy_score, f1_score
@@ -18,44 +18,42 @@ from utils import rank_docs
 class Pipeline:
     """General Pipeline. Implement fetch_evidence, select_evidence, verify_claim."""
 
-    def verify(self, word: str, claim: str, pooling=False) -> float | List[Fact]:
+    def verify(self, word: str, claim: str) -> Dict:
         """
         Verify a claim related to a word.
         :param word: Word associated to the claim.
         :param claim: Claim to be verified.
-        :param pooling: If True, does mean pooling (Supported facts counts 1, others 0)
-        :return: percentage of true facts inside the claim if pooling. Else list containing
-        factualities for each atomic fact.
+        :return: dict containing factuality, atomic claim factualities and selected evidences.
         """
         ev_sents = self.fetch_evidence(word)
+        selected_evidences = self.select_evidence(claim, ev_sents)   # we need to know the line and the page the info was taken from
+        selected_ev_sents = [evidence[2] for evidence in selected_evidences]
         atomic_claims = self.process_claim(claim)
 
         total_factuality = 0
         factualities = []
         for atomic_claim in atomic_claims:
-            selected_ev_sents = self.select_evidence(atomic_claim, ev_sents)
             factuality = self.verify_claim(atomic_claim, selected_ev_sents)
+            total_factuality += 1 if factuality == Fact.SUPPORTS else 0
+            factualities.append(factuality)
 
-            if pooling:
-                total_factuality += 1 if factuality == Fact.SUPPORTS else 0
-            else:
-                factualities.append(factuality)
-
-        return total_factuality / len(atomic_claims) if pooling else factualities
+        return {'factuality': total_factuality / len(atomic_claims),
+                'factualities': factualities,
+                'evidences': [(evidence[0], evidence[1]) for evidence in selected_evidences]}
 
     @staticmethod
-    def process_claim(claim: str) -> list[str]:
+    def process_claim(claim: str) -> List[str]:
         """Process a claim. E.g. split it into its atomic facts."""
         return [claim]
 
-    def fetch_evidence(self, word: str) -> list[list[str]]:
+    def fetch_evidence(self, word: str) -> List[Tuple[str, List[str], List[str]]]:
         """
         Fetch the information of the word inside the knowledge base.
         :param word: Word, for which we need information.
         :return: List of sentences, representing all information known to the word.
         """
 
-    def select_evidence(self, claim: str, evidence_list: list[list[str]]) -> list[str]:
+    def select_evidence(self, claim: str, evidence_list: List[Tuple[str, List[str], List[str]]]) -> List[Tuple[str, str, str]]:
         """
         Select sentences possibly containing evidence for the claim.
         :param claim: Claim to be verified.
@@ -63,7 +61,7 @@ class Pipeline:
         :return: List of sentences, possibly containing evidence.
         """
 
-    def verify_claim(self, claim: str, sentences: list[str]) -> Fact:
+    def verify_claim(self, claim: str, sentences: List[str]) -> Fact:
         """
         Verify the claim using sentences as evidence.
         :param claim: Claim to be verified.
@@ -96,16 +94,16 @@ class ModelPipeline(Pipeline):
         self.verification_model = verification_model
         self.verification_model_tokenizer = verification_model_tokenizer
 
-    def _build_selection_model_input(self, claim: str, sentences: list[str]):
-        """"""
+    def _build_selection_model_input(self, claim: str, sentences: List[str]):
         encoded_sequence = []
         sentence_mask = []
         for i, sentence in enumerate(sentences):
-            encoded_sentence = self.selection_model_tokenizer.encode(sentence)[1:-1]  # + [1]
+            encoded_sentence = self.selection_model_tokenizer.encode(sentence)  # [1:-1]  # + [1]
             encoded_sequence += encoded_sentence
             sentence_mask += [i] * len(encoded_sentence)
-            encoded_sequence.append(self.selection_model_tokenizer.sep_token_id)
-            sentence_mask.append(-1)
+            # sentence_mask += [int(line_number)] + [0] * (len(encoded_line) - 1)  # try only with cls token
+            # encoded_sequence.append(self.selection_model_tokenizer.sep_token_id)
+            # sentence_mask.append(-1)
 
         unique_sentence_numbers = set(sentence_mask)
         sentence_masks = []
@@ -138,17 +136,19 @@ class ModelPipeline(Pipeline):
 class TestPipeline(ModelPipeline):
     """Pipeline used for test purposes."""
 
-    def fetch_evidence(self, word: str) -> list[list[str]]:
+    def fetch_evidence(self, word: str) -> list[tuple[str, list[str], list[str]]]:
         with FeverDocDB() as db:
             lines = db.get_doc_lines(word)
 
         lines = process_lines(lines)
         processed_lines = []
+        line_numbers = []
         for line in lines.split('\n'):
             line = process_sentence(line)
-            _, text = split_text(line)
+            line_number, text = split_text(line)
             processed_lines.append(text)
-        return [processed_lines]
+            line_numbers.append(line_number)
+        return [(word, line_numbers, processed_lines)]
 
     @staticmethod
     def process_claim(claim: str) -> list[str]:
@@ -159,9 +159,9 @@ class TestPipeline(ModelPipeline):
                                          WHERE dd.claim = ?""", params=(claim,))
         return [fact[0] for fact in facts] if facts else [claim]
 
+    def select_evidence(self, claim: str, evidence_list: list[tuple[str, list[str], list[str]]], top_k=3) -> list[tuple[str, str, str]]:
+        page, line_numbers, sentences = evidence_list[0]  # in test case we only have one page
 
-    def select_evidence(self, claim: str, evidence_list: list[list[str]], top_k=3) -> list[str]:
-        sentences = evidence_list[0]  # in test case we only have one page
         claim_model_input, sentences_model_input = self._build_selection_model_input(claim,
                                                                                      sentences)
         with torch.no_grad():
@@ -171,7 +171,7 @@ class TestPipeline(ModelPipeline):
             top_indices = torch.topk(claim_similarities,
                                      k=min(top_k, claim_similarities.size(1)))[1].squeeze(0)
 
-        return [sentences[index] for index in top_indices]
+        return [(page, line_numbers[idx], sentences[idx]) for idx in top_indices]
 
 
 class WikiPipeline(ModelPipeline):
@@ -183,18 +183,19 @@ class WikiPipeline(ModelPipeline):
                          verification_model_tokenizer)
         self.wiki = Wikipedia()
 
-    def fetch_evidence(self, word: str) -> list[list[str]]:
-        return self.wiki.get_summaries(word, k=20)
+    def fetch_evidence(self, word: str) -> list[tuple[str, list[str], list[str]]]:
+        summaries = self.wiki.get_summaries(word, k=20)  # TODO line numbers
+        return [(page, [str(i) for i in range(len(lines))], lines) for page, lines in summaries]
 
-    def select_evidence(self, claim: str, evidence_list: list[list[str]], top_k=3,
-                        max_evidence_count=3) -> list[str]:
+    def select_evidence(self, claim: str, evidence_list: list[tuple[str, list[str], list[str]]], top_k=3,
+                        max_evidence_count=3) -> list[tuple[str, str, str]]:
         if len(evidence_list) > max_evidence_count:
-            ranked_indices = rank_docs(claim, [" ".join(txt) for txt in evidence_list],
+            ranked_indices = rank_docs(claim, [" ".join(entry[2]) for entry in evidence_list],
                                        k=max_evidence_count)
             evidence_list = [evidence_list[i] for i in ranked_indices]
 
         sentence_similarities = []
-        for sentences in evidence_list:
+        for page, line_numbers, sentences in evidence_list:
             claim_model_input, sentences_model_input = self._build_selection_model_input(claim,
                                                                                          sentences)
             with torch.no_grad():
@@ -202,15 +203,15 @@ class WikiPipeline(ModelPipeline):
                 sentence_embeddings = self.selection_model(**sentences_model_input)
                 claim_similarities = cosine_similarity(claim_embedding,
                                                        sentence_embeddings, dim=2).tolist()[0]
-                sentence_similarity = list(zip(sentences, claim_similarities))
+                sentence_similarity = [(page, *values) for values in zip(line_numbers, sentences, claim_similarities)]
                 sentence_similarities.extend(sentence_similarity)
 
-        sorted_sentences = sorted(sentence_similarities, key=lambda x: x[1], reverse=True)
-        return [sentence[0] for sentence in sorted_sentences[:top_k]]
+        sorted_sentences = sorted(sentence_similarities, key=lambda x: x[3], reverse=True)
+        return [(sentence[0], sentence[1], sentence[2]) for sentence in sorted_sentences[:top_k]]
 
 
 if __name__ == "__main__":
-    pipeline = TestPipeline()
+    pipeline = WikiPipeline()
 
     tests = [('Albania', 'Albania is a member of NATO.', 1),
              ('Spain', 'Spain is in Europe.', 1),
@@ -237,7 +238,8 @@ if __name__ == "__main__":
 
     pr_labels = []
     gt_labels = []
-    for word_test, claim_test, gt_label in tqdm(tests, desc='Verifying claim'):
+    fever_instances = []
+    for word_test, claim_test, gt_label in tqdm(tests1, desc='Verifying claim'):
         factuality_test = pipeline.verify(word=word_test, claim=claim_test)
 
         gt_labels += [gt_label] * len(factuality_test)

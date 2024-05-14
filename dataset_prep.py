@@ -1,13 +1,12 @@
 """Script for creating the dataset."""
 
-import random
 from typing import Tuple
 
 from datasets import Dataset
 from tqdm import tqdm
 
 from reader import JSONLineReader
-from spacy_utils import get_ent_type, check_person, recognize_definition
+from spacy_utils import get_ent_type, recognize_definition
 
 
 def check_stats(dataset: Dataset) -> dict:
@@ -52,25 +51,38 @@ def create_def_dataset(file_in: str, file_out: str, person_prop=0.1, long=True) 
 
         claim = claim.replace("\xa0", " ")
         if claim and recognize_definition(claim):
-            if check_person(claim):
-                if random.random() > person_prop:  # only take 10% of persons
-                    continue
+            #if check_person(claim):
+            #    if random.random() > person_prop:  # only take 10% of persons
+            #        continue
 
             if long:
                 all_evidences = entry.get('evidence')
                 for evidence_list in all_evidences:
                     if len(evidence_list) > 1:  # we do not want multi-hop references
-                        continue
+                        page = ''
+                        skip = False
+                        for evidence in evidence_list:
+                            if page and evidence[2] != page:
+                                skip = True
+                                continue
+                            else:
+                                page = evidence[2]
+                        if skip:
+                            continue
 
-                    evidence = evidence_list[0]
+                    if evidence_list[0][3] is None:  # sentence id is None
+                        evidence_sentence_ids = None
+                    else:
+                        evidence_sentence_ids = ','.join([str(evidence[3]) for evidence in evidence_list])
+
                     long_entry = {'id': entry.get('id'),
                                   'verifiable': entry.get('verifiable'),
                                   'label': entry.get('label'),
                                   'claim': claim,
-                                  'evidence_annotation_id': evidence[0],
-                                  'evidence_id': evidence[1],
-                                  'evidence_wiki_url': evidence[2],
-                                  'evidence_sentence_id': evidence[3]}
+                                  'evidence_annotation_id': evidence_list[0][0],
+                                  'evidence_id': evidence_list[0][1],
+                                  'evidence_wiki_url': evidence_list[0][2],
+                                  'evidence_sentence_id': evidence_sentence_ids}
                     def_dataset.append(long_entry)
             else:
                 def_dataset.append(entry)
@@ -79,7 +91,7 @@ def create_def_dataset(file_in: str, file_out: str, person_prop=0.1, long=True) 
     return len(def_dataset), len(dataset_raw)
 
 
-print(create_def_dataset(file_in='datasets/fever/train.jsonl', file_out='datasets/def_train.jsonl',
+print(create_def_dataset(file_in='dataset/fever/train.jsonl', file_out='dataset/def_train.jsonl',
                          person_prop=0.1))
 print(create_def_dataset(file_in='dataset/fever/dev.jsonl', file_out='dataset/def_dev.jsonl',
                          person_prop=0.1))

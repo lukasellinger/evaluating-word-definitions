@@ -24,7 +24,7 @@ class Fact(Enum):
         factuality = {
             Fact.SUPPORTS: 1,
             Fact.REFUTES: 0,
-            Fact.NOT_ENOUGH_INFO: -1  # TODO what happens with not enough info
+            Fact.NOT_ENOUGH_INFO: -1
         }
         return factuality[self]
 
@@ -52,20 +52,26 @@ def process_lines(lines):
 
 
 def split_text(line: str) -> Tuple[str, str]:
-    """Splits the text into line number and text."""
+    """Splits the text into line number and text.
+    :rtype: object
+    """
     tab_splits = line.split('\t')
     line_number = tab_splits[0]
     text = tab_splits[1]
     return line_number, text
 
 
-def process_data(data, max_length=2000):
-    """Filters text longer than max_length words."""
-    def filter_txt_length(text):
-        text = process_sentence(text)
-        return len(' '.join(text).split()) < max_length
+def process_data(data, max_length=2000, k=3):
+    """Filters text longer than max_length words and evidence list larger than k."""
+    def filter_entry(entry):
+        text = process_sentence(entry['text'])
+        evidence_lines = entry['evidence_lines']
+        # we do not want to have claims with evidence groups > k. There are only about 40 with more
+        # than 3 lines in a group.
+        return len(' '.join(text).split()) < max_length and all(
+            len(group) <= k for group in evidence_lines.split(';'))
 
-    return data.filter(lambda i: filter_txt_length(i['text']))
+    return data.filter(lambda i: filter_entry(i))
 
 
 def build_attention_masks(lst: List[List], pad_token=0, attention_mask_pad=0) -> List[List]:
@@ -149,7 +155,7 @@ class DefinitionDataset(Dataset):
         all_input_ids, all_labels, hypothesis_lengths = [], [], []
 
         for data in batch:
-            evidence_lines = data['evidence_lines'].split(',')
+            evidence_lines = set(re.split(r'[;,]',  data['evidence_lines']))
             hypothesis = ""
             lines = process_lines(data['lines'])
             for line in lines.split('\n'):
@@ -175,8 +181,11 @@ class DefinitionDataset(Dataset):
         all_claim_input_ids, all_input_ids, all_labels, all_sentence_mask = [], [], [], []
 
         for data in batch:
-            evidence_lines = data['evidence_lines'].split(',')
-            encoded_claim = self.tokenizer.encode(data['claim'])
+            evidence_lines = set(re.split(r'[;,]',  data['evidence_lines']))
+
+            # query = 'Represent this sentence for searching relevant passages: ' + data['claim']
+            query = data['claim']
+            encoded_claim = self.tokenizer.encode(query) # [1:-1]  # test without cls, sep token
             lines = process_lines(data['lines'])
             labels = []
             encoded_sequence = []
@@ -184,12 +193,13 @@ class DefinitionDataset(Dataset):
             for line in lines.split('\n'):
                 line = process_sentence(line)
                 line_number, text = split_text(line)
-                encoded_line = self.tokenizer.encode(text)[1:-1]  # + [1]
+                encoded_line = self.tokenizer.encode(text)  # [1:-1]  # try with cls and sep token
                 encoded_sequence += encoded_line
                 sentence_mask += [int(line_number)] * len(encoded_line)
+                #sentence_mask += [int(line_number)] + [0] * (len(encoded_line) - 1)  # try only with cls token
                 labels.append(1 if line_number in evidence_lines else 0)
-                encoded_sequence.append(self.tokenizer.sep_token_id)
-                sentence_mask.append(-1)
+                # encoded_sequence.append(self.tokenizer.sep_token_id) # try with cls and sep token
+                # sentence_mask.append(-1) # try with cls and sep token
 
             unique_sentence_numbers = set(sentence_mask)
             sentence_masks = []
@@ -244,7 +254,7 @@ class SentenceContextDataset(Dataset):
         new_data = []
 
         for entry in data:
-            evidence_lines = entry['evidence_lines'].split(',')
+            evidence_lines = set(re.split(r'[;,]',  data['evidence_lines']))
             lines = process_lines(entry['lines'])
 
             processed_lines = self.clean_lines(lines)
@@ -344,7 +354,7 @@ class SentenceContextContrastiveDataset(SentenceContextDataset):
                          'sentences': [],
                          'indices': []}
 
-            evidence_lines = entry['evidence_lines'].split(',')
+            evidence_lines = set(re.split(r'[;,]',  data['evidence_lines']))
             lines = process_lines(entry['lines'])
             processed_lines = self.clean_lines(lines)
             for i, (line_number, line) in enumerate(processed_lines):
