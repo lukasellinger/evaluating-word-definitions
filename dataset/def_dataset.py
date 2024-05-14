@@ -184,8 +184,7 @@ class DefinitionDataset(Dataset):
             evidence_lines = set(re.split(r'[;,]',  data['evidence_lines']))
 
             # query = 'Represent this sentence for searching relevant passages: ' + data['claim']
-            query = data['claim']
-            encoded_claim = self.tokenizer.encode(query) # [1:-1]  # test without cls, sep token
+            encoded_claim = self.tokenizer.encode(data['claim']) # [1:-1]  # test without cls, sep token
             lines = process_lines(data['lines'])
             labels = []
             encoded_sequence = []
@@ -193,13 +192,13 @@ class DefinitionDataset(Dataset):
             for line in lines.split('\n'):
                 line = process_sentence(line)
                 line_number, text = split_text(line)
-                encoded_line = self.tokenizer.encode(text)  # [1:-1]  # try with cls and sep token
+                encoded_line = self.tokenizer.encode(text)[1:-1]
                 encoded_sequence += encoded_line
                 sentence_mask += [int(line_number)] * len(encoded_line)
                 #sentence_mask += [int(line_number)] + [0] * (len(encoded_line) - 1)  # try only with cls token
                 labels.append(1 if line_number in evidence_lines else 0)
-                # encoded_sequence.append(self.tokenizer.sep_token_id) # try with cls and sep token
-                # sentence_mask.append(-1) # try with cls and sep token
+                encoded_sequence.append(self.tokenizer.sep_token_id)
+                sentence_mask.append(-1)
 
             unique_sentence_numbers = set(sentence_mask)
             sentence_masks = []

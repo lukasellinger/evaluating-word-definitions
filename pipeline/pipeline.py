@@ -18,6 +18,9 @@ from utils import rank_docs
 class Pipeline:
     """General Pipeline. Implement fetch_evidence, select_evidence, verify_claim."""
 
+    def __init__(self):
+      self.device = "cuda" if torch.cuda.is_available() else "cpu"
+
     def verify(self, word: str, claim: str) -> Dict:
         """
         Verify a claim related to a word.
@@ -98,12 +101,12 @@ class ModelPipeline(Pipeline):
         encoded_sequence = []
         sentence_mask = []
         for i, sentence in enumerate(sentences):
-            encoded_sentence = self.selection_model_tokenizer.encode(sentence)  # [1:-1]  # + [1]
+            encoded_sentence = self.selection_model_tokenizer.encode(sentence)[1:-1]  # + [1]
             encoded_sequence += encoded_sentence
             sentence_mask += [i] * len(encoded_sentence)
-            # sentence_mask += [int(line_number)] + [0] * (len(encoded_line) - 1)  # try only with cls token
-            # encoded_sequence.append(self.selection_model_tokenizer.sep_token_id)
-            # sentence_mask.append(-1)
+            # sentence_mask += [int(i)] + [-1] * (len(encoded_sentence) - 1)  # try only with cls token
+            encoded_sequence.append(self.selection_model_tokenizer.sep_token_id)
+            sentence_mask.append(-1)
 
         unique_sentence_numbers = set(sentence_mask)
         sentence_masks = []
@@ -112,10 +115,10 @@ class ModelPipeline(Pipeline):
                 continue
             sentence_masks.append([1 if val == num else 0 for val in sentence_mask])
 
-        return (self.selection_model_tokenizer(claim, return_tensors='pt'),
-                {'input_ids': torch.tensor(encoded_sequence).unsqueeze(0),
-                 'attention_mask': torch.ones(len(encoded_sequence)).unsqueeze(0),
-                 'sentence_mask': torch.tensor(sentence_masks).unsqueeze(0)})
+        return (self.selection_model_tokenizer(claim, return_tensors='pt').to(self.device),
+                {'input_ids': torch.tensor(encoded_sequence).unsqueeze(0).to(self.device),
+                 'attention_mask': torch.ones(len(encoded_sequence)).unsqueeze(0).to(self.device),
+                 'sentence_mask': torch.tensor(sentence_masks).unsqueeze(0).to(self.device)})
 
     def verify_claim(self, claim: str, sentences: list[str]) -> Fact:
         model_inputs = self._build_verification_model_input(claim, sentences)
@@ -129,8 +132,8 @@ class ModelPipeline(Pipeline):
         hypothesis = ' '.join(sentences)
         model_inputs = self.verification_model_tokenizer(hypothesis, claim)
 
-        return {'input_ids': torch.tensor(model_inputs['input_ids']).unsqueeze(0),
-                'attention_mask': torch.tensor(model_inputs['attention_mask']).unsqueeze(0)}
+        return {'input_ids': torch.tensor(model_inputs['input_ids']).unsqueeze(0).to(self.device),
+                'attention_mask': torch.tensor(model_inputs['attention_mask']).unsqueeze(0).to(self.device)}
 
 
 class TestPipeline(ModelPipeline):
@@ -152,12 +155,13 @@ class TestPipeline(ModelPipeline):
 
     @staticmethod
     def process_claim(claim: str) -> list[str]:
-        with FeverDocDB() as db:
-            facts = db.read("""SELECT DISTINCT af.fact
-                                         FROM atomic_facts af 
-                                         JOIN def_dataset dd ON af.claim_id = dd.id
-                                         WHERE dd.claim = ?""", params=(claim,))
-        return [fact[0] for fact in facts] if facts else [claim]
+        #with FeverDocDB() as db:
+        #    facts = db.read("""SELECT DISTINCT af.fact
+        #                                 FROM atomic_facts af
+        #                                 JOIN def_dataset dd ON af.claim_id = dd.id
+        #                                 WHERE dd.claim = ?""", params=(claim,))
+        #return [fact[0] for fact in facts] if facts else [claim]
+        return [claim]
 
     def select_evidence(self, claim: str, evidence_list: list[tuple[str, list[str], list[str]]], top_k=3) -> list[tuple[str, str, str]]:
         page, line_numbers, sentences = evidence_list[0]  # in test case we only have one page
@@ -208,58 +212,3 @@ class WikiPipeline(ModelPipeline):
 
         sorted_sentences = sorted(sentence_similarities, key=lambda x: x[3], reverse=True)
         return [(sentence[0], sentence[1], sentence[2]) for sentence in sorted_sentences[:top_k]]
-
-
-if __name__ == "__main__":
-    pipeline = WikiPipeline()
-
-    tests = [('Albania', 'Albania is a member of NATO.', 1),
-             ('Spain', 'Spain is in Europe.', 1),
-             ('Reds_-LRB-film-RRB-', 'Reds is an epic drama film.', 1),
-             ('Unpredictable_-LRB-Jamie_Foxx_album-RRB-', 'Unpredictable was an album.', 1),
-             ('Ruth_Negga', 'Ruth Negga is a film actress.', 1),
-             ('Inspectah_Deck', 'Inspectah Deck is stateless.', 0),
-             ('Drake_-LRB-musician-RRB-', 'Drake is only German.', 0),
-             ('Overwatch_-LRB-video_game-RRB-', 'Overwatch is a board game.', 0),
-             ('Ad-Rock', 'Ad-Rock is single.', 0),
-             ('Gujarat', 'Gujarat is in Western Boston.', 0)]
-
-    tests1 = [('Albania', 'Albania is a member of NATO.', -1),
-             # is not in summary text for current wiki
-             ('Spain', 'Spain is in Europe.', 1),
-             ('Reds', 'Reds is an epic drama film.', 1),
-             ('Unpredictable', 'Unpredictable was an album.', 1),
-             ('Ruth Negga', 'Ruth Negga is a film actress.', 1),
-             ('Inspectah Deck', 'Inspectah Deck is stateless.', 0),  # ??
-             ('Drake', 'Drake is only German.', 0),
-             ('Overwatch', 'Overwatch is a board game.', 0),
-             ('Ad-Rock', 'Ad-Rock is single.', -1),  # is not in summary text for current wiki
-             ('Gujarat', 'Gujarat is in Western Boston.', 0)]
-
-    pr_labels = []
-    gt_labels = []
-    fever_instances = []
-    for word_test, claim_test, gt_label in tqdm(tests1, desc='Verifying claim'):
-        factuality_test = pipeline.verify(word=word_test, claim=claim_test)
-
-        gt_labels += [gt_label] * len(factuality_test)
-        pr_labels.extend([fact.to_factuality() for fact in factuality_test])
-
-    acc = accuracy_score(gt_labels, pr_labels)
-    f1_weighted = f1_score(gt_labels, pr_labels, average='weighted')
-    f1_macro = f1_score(gt_labels, pr_labels, average='macro')
-
-    print(acc)
-    print(f1_weighted)
-    print(f1_macro)
-
-    ######
-    # test pipeline
-    # 0.9
-    # 0.94
-    # 0.63
-    # wiki pipeline
-    # 0.9
-    # 0.89
-    # 0.85
-    ######
