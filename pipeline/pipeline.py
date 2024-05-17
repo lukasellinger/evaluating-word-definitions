@@ -37,7 +37,7 @@ class Pipeline:
         factualities = []
         for atomic_claim in atomic_claims:
             factuality = self.verify_claim(atomic_claim, selected_ev_sents)
-            total_factuality += 1 if factuality == Fact.SUPPORTS else 0
+            total_factuality += 1 if factuality == Fact.SUPPORTED else 0
             factualities.append(factuality)
 
         return {'factuality': total_factuality / len(atomic_claims),
@@ -123,8 +123,11 @@ class ModelPipeline(Pipeline):
     def verify_claim(self, claim: str, sentences: list[str]) -> Fact:
         model_inputs = self._build_verification_model_input(claim, sentences)
         with torch.no_grad():
-            output = self.verification_model(**model_inputs)
-            predicted = torch.softmax(output['logits'], dim=-1)
+            logits = self.verification_model(**model_inputs)['logits']
+            predicted = torch.softmax(logits, dim=-1)
+            # predicted = torch.argmax(predicted, dim=-1).item()
+            predicted[:, 1] += predicted[:, 2]
+            predicted = predicted[:, :2]
             predicted = torch.argmax(predicted, dim=-1).item()
         return Fact(predicted)
 

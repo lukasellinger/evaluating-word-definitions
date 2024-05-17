@@ -15,16 +15,21 @@ from utils import convert_to_unicode
 class Fact(Enum):
     """Represents the types a fact can have."""
 
-    SUPPORTS = 0
-    REFUTES = 2
-    NOT_ENOUGH_INFO = 1  # TODO data needed, FEVER has empty documents
+    #SUPPORTS = 0
+    #REFUTES = 2
+    #NOT_ENOUGH_INFO = 1  # TODO data needed, FEVER has empty documents
+
+    SUPPORTED = 0
+    NOT_SUPPORTED = 1
 
     def to_factuality(self) -> int:
         """Convert itself to a measurement."""
         factuality = {
-            Fact.SUPPORTS: 1,
-            Fact.REFUTES: 0,
-            Fact.NOT_ENOUGH_INFO: -1
+            Fact.SUPPORTED: 1,
+            Fact.NOT_SUPPORTED: 0
+            #Fact.SUPPORTS: 1,
+            #Fact.REFUTES: 0,
+            #Fact.NOT_ENOUGH_INFO: -1
         }
         return factuality[self]
 
@@ -112,12 +117,13 @@ class DefinitionDataset(Dataset):
     """Dataset for Definitions. One can choose for which model the dataset should be built.
     Each entry encodes the whole document at once."""
 
-    def __init__(self, data, tokenizer, mode="train", model=None):
+    def __init__(self, data, tokenizer=None, mode="train", model=None):
         if model in ['claim_verification', 'evidence_selection']:
             self.model = model
         else:
-            raise ValueError(
-                f'Model needs to be "claim_verification" or "evidence_selection" but is: {model}')
+            pass
+            #raise ValueError(
+            #    f'Model needs to be "claim_verification" or "evidence_selection" but is: {model}')
         self.mode = mode
         self.tokenizer = tokenizer
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -167,7 +173,11 @@ class DefinitionDataset(Dataset):
                 hypothesis += ' '
             encoded_sequence = self.tokenizer.encode(hypothesis, data['claim'])
             all_input_ids.append(encoded_sequence)
-            all_labels.append(Fact[data['label']].value)
+
+            if data['label'] == 'SUPPORTS':
+                all_labels.append(Fact.SUPPORTED.value)
+            else:
+                all_labels.append(Fact.NOT_SUPPORTED.value)
             hypothesis_lengths.append(len(hypothesis))
         attention_masks = build_attention_masks(all_input_ids,
                                                 pad_token=self.tokenizer.pad_token_id)

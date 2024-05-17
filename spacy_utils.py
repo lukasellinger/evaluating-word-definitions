@@ -114,13 +114,13 @@ def get_first_compound_or_word(text: str) -> str:
 def get_words_before_root(sentence: str) -> str:
     """Get all words before the root of the sentence"""
     doc = nlp(sentence)
-    words = []
+    root_token = 'ROOT'
     for token in doc:
         if token.dep_ == "ROOT":
+            root_token = ' ' + str(token) + ' '
             break
-        words.append(str(token))
-    return " ".join(words)
 
+    return sentence.split(root_token)[0].strip()
 
 def tok_format(tok):
     """Get original verbatim text of tok."""
@@ -133,4 +133,3 @@ def to_nltk_tree(node):
         return {tok_format(node): [to_nltk_tree(child) for child in node.children]}
     else:
         return tok_format(node)
-

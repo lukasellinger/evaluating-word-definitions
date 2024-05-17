@@ -1,6 +1,8 @@
 """Main evidence selection script."""
 import torch
+import transformers
 from datasets import Dataset
+from peft import LoraConfig, get_peft_model, TaskType
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics import accuracy_score, f1_score, recall_score, classification_report
 from torch.nn import BCELoss
@@ -30,12 +32,24 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 #tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
 #model = AutoModel.from_pretrained('sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
 
-tokenizer = AutoTokenizer.from_pretrained('Snowflake/snowflake-arctic-embed-m-long')
-model = AutoModel.from_pretrained('Snowflake/snowflake-arctic-embed-m-long', trust_remote_code=True, add_pooling_layer=False, safe_serialization=True)
-#model_name = 'google/bigbird-roberta-large'
-#model = BigBirdModel.from_pretrained(model_name)
+model_name = 'Snowflake/snowflake-arctic-embed-m-long'
+model = AutoModel.from_pretrained(model_name, trust_remote_code=True, add_pooling_layer=False, safe_serialization=True)
 
-selection_model = EvidenceSelectionModel(model, feed_forward=False).to(device)
+selection_model = EvidenceSelectionModel(model).to(device)
+
+# Add all lora compatible modules
+target_modules = []
+for name, module in model.named_modules():
+    if isinstance(module, (torch.nn.Linear, torch.nn.Embedding, torch.nn.Conv2d, transformers.pytorch_utils.Conv1D)):
+        target_modules.append(name)
+
+peft_config = LoraConfig(task_type=TaskType.FEATURE_EXTRACTION, inference_mode=False, r=40, lora_alpha=32, lora_dropout=0.1, target_modules=target_modules, use_rslora=True)
+model = get_peft_model(model, peft_config) # 40
+model.print_trainable_parameters()
+
+selection_model = EvidenceSelectionModel(model).to(device)
+
+tokenizer = AutoTokenizer.from_pretrained(model_name)
 #selection_model = DummyEvidenceSelectionModel()
 
 #test = SentenceContextContrastiveDataset(dataset, tokenizer)

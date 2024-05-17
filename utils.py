@@ -111,9 +111,9 @@ def title_to_db_page(txt: str, parentheses=True) -> str:
     """Converts a title to how it is stored in the db."""
     txt = txt.replace(' ', '_')
     if parentheses:
+        txt = txt.replace('-', '--')
         txt = txt.replace('(', '-LRB-')
         txt = txt.replace(')', '-RRB-')
         txt = txt.replace(':', '-COLON-')
-        txt = txt.replace('-', '--')
 
     return txt
