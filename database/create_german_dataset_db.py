@@ -6,7 +6,7 @@ from tqdm import tqdm
 from database.db_retriever import FeverDocDB
 
 CREATE_GERMAN_DATASET = """
-CREATE TABLE IF NOT EXISTS german_dataset (
+CREATE TABLE IF NOT EXISTS german_dpr_dataset (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     question TEXT,
     answer TEXT,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS german_dataset (
 """
 
 INSERT_ENTRY = """
-INSERT INTO german_dataset (question, answer, fact, context, label)
+INSERT INTO german_dpr_dataset (question, answer, fact, context, label)
 VALUES (?, ?, ?, ?, ?)
 """
 

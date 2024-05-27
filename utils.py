@@ -117,3 +117,10 @@ def title_to_db_page(txt: str, parentheses=True) -> str:
         txt = txt.replace(':', '-COLON-')
 
     return txt
+
+
+def remove_non_alphabetic_start_end(text):
+    text = text.strip()
+    text = re.sub(r'[^a-zA-Z]+$', '', text)
+    text = re.sub(r'^[^a-zA-Z]+', '', text)
+    return text.strip()

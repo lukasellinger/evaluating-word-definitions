@@ -1,0 +1,31 @@
+[
+  {
+    "title": "Nudossi",
+    "context_word": "Nudossi",
+    "context_sentence": "\u201eKann ich bitte die (das, den) Nudossi haben?\"",
+    "ground_truth": "eine herstellerspezifische Bezeichnung f\u00fcr dessen Variante von Nuss-Nugat-Creme"
+  },
+  {
+    "a71e5cfb0a954f63b17c3c7b3c626e64": "nicht-existierendes Wort (trinkt man wahrscheinlich Kakao)",
+    "71254e7e5ced4ce2a27c5de31f7fb7ab": "Nudossi ist eine Marke von Milchm\u00e4dcheneis.\n\n(Anmerkung: Nudossi ist ein historisches deutsches Eisprodukt, das nicht mehr hergestellt wird. Im Beispielsatz ist es eine Marke von Milchm\u00e4dcheneis.)",
+    "e1d3f1f8aace43caa693e9836834504e": "Nudossi ist eine Marke von Kaugummi in Deutschland.\n\n(Anmerkung: Nudossi ist ein historischer Bezug, da es in den 1980er-Jahren in der DDR sehr beliebt war. Heutzutage ist die Marke nicht mehr weit verbreitet.)",
+    "cb8135f768dd4a8285257deb0bc3d912": "Nudossi ist eine Marke von Schokocreme aus der DDR.\nDie Antwort w\u00e4re also: \"Nudossi ist eine Marke von Schokocreme\" oder einfach \"DDR-Schokocreme\".",
+    "5565790ff7c74ef69997fc0af6a3cd06": "fiktive, magische Substanz, ohne Bedeutung au\u00dferhalb des Beispiels",
+    "41ef3452981a4b208aa35c8f8b7197df": "Es gibt keine bekannte Verwendung des Begriffs \u201eNudossi\u201c. M\u00f6glicherweise ist dies ein Tippfehler oder ein nicht allgemein bekanntes Wort.",
+    "14ae3307f7df4c26b249b847ef24c26a": "Im Satz \"Kann ich bitte die (das, den) Nudossi haben?\" bezieht sich das Wort \"Nudossi\" auf ein noch zu bestimmtes Objekt, da es in dieser Form im Deutschen nicht existiert. Wenn wir jedoch annehmen, dass es hier um eine Kaffeemarke gehen k\u00f6nnte, dann k\u00f6nnte \"Nudossi\" ein Markenname f\u00fcr Kaffeeprodukte sein. In diesem Fall w\u00e4re \"Nudossi\" ein s\u00e4chlich konnotiertes, also mit dem bestimmten Artikel \"das\" zu verwendendes, Nomen, das f\u00fcr Kaffee steht.",
+    "ebee22c9aef14c8baaca0ec3192e8833": "Im Kontext des Beispielsatzes ist \"Nudossi\" ein fiktives, nicht existierendes Nudel-Getr\u00e4nk. Die Definition w\u00e4re also: Nudossi (fiktives Nudel-Getr\u00e4nk).",
+    "9eaf7a3028bd4b2cb773d0105f165add": "Marke f\u00fcr Instant-Kaffeeprodukt, nicht mehr im Handel erh\u00e4ltlich.\n\n(Quelle: H\u00e4ufig gestellte Fragen in einem Forum f\u00fcr Kaffee)",
+    "7e5d6c8cba4d49a8853e5e4c06072da7": "fiktives Getr\u00e4nk mit Kultstatus in einer bestimmten Gemeinschaft (SCNR)",
+    "2bd01c54631c41c48ece315af304a7c0": "Kleidungsst\u00fcck f\u00fcr den Oberk\u00f6rper, vornehmlich in Afrika getragen",
+    "6819089ff044491b97e144e4e1c111ff": "traditionelle, urspr\u00fcngliche Kultur der Insel Papua-Neuguinea",
+    "e24c349c5d314b4c935bf351e256f480": "Eine traditionelle italienische Kaffee- und Kuchenbar.",
+    "6bf2254afdc2439ebd8f566ab84b5b82": "Nudossi: ein italienischer Kaffee, der in einer kleinen Kanne serviert wird, typischerweise in den Bergen S\u00fcdtirols.",
+    "6e16e2ab19f240188837143a053cb2f7": "einen traditionellen, aus Holz gefertigten Stuhl der Quechua-Indianer in S\u00fcdamerika",
+    "986ee36c268d424ebc061d646c5eadc7": "traditionelle indigene Kulturkleidung",
+    "48737ef3d19c485a987fd787235224d8": "Kleidungsst\u00fcck, das um die H\u00fcfte getragen wird",
+    "26af50738e76460b8ab94850c35af235": "Sitzm\u00f6bel mit Armlehnen und R\u00fcckenlehne",
+    "7c576b147ef94c578629c8ae942470d5": "Kleidungsst\u00fcck",
+    "9e0e9faebec6420db8b0ddb70309cb69": "Gep\u00e4ckst\u00fcck",
+    "e23bb6ec28ef48d0b92d039472aab389": "Gep\u00e4ckst\u00fcck eines Reisenden"
+  }
+]

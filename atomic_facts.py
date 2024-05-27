@@ -37,10 +37,11 @@ tokens = {
     1: {'token': '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',
         'cooldown': False},
     2: {'token': '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',
+        'cooldown': False},
+    3: {'token': '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',
         'cooldown': False}
 }
 headers = {"Authorization": "Bearer {token}"}
-
 
 def query(payload, token):
     headers['Authorization'] = headers['Authorization'].format(token=token)
@@ -103,7 +104,7 @@ with FeverDocDB() as db:
 
 
 for claim_id, claim in claims:
-    time.sleep(0.7)
+    time.sleep(0.5)
     filtered_tokens = {k: v for k, v in tokens.items() if v['cooldown'] == False}
 
     if filtered_tokens:

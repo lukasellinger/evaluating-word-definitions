@@ -15,7 +15,7 @@ WHERE id = ?
 EXIST_WIKI_PAGE = """
 SELECT document_id
 FROM documents
-WHERE document_id = ?
+WHERE document_id = ? and lines != ''
 """
 
 with FeverDocDB() as db:

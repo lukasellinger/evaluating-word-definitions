@@ -28,21 +28,27 @@ class Pipeline:
         :param claim: Claim to be verified.
         :return: dict containing factuality, atomic claim factualities and selected evidences.
         """
+        output = {'factuality': -1,
+                  'factualities': [],
+                  'evidences': []}
         ev_sents = self.fetch_evidence(word, only_intro)
-        selected_evidences = self.select_evidence(claim, ev_sents)   # we need to know the line and the page the info was taken from
-        selected_ev_sents = [evidence[2] for evidence in selected_evidences]
-        atomic_claims = self.process_claim(claim)
 
-        total_factuality = 0
-        factualities = []
-        for atomic_claim in atomic_claims:
-            factuality = self.verify_claim(atomic_claim, selected_ev_sents)
-            total_factuality += 1 if factuality == Fact.SUPPORTED else 0
-            factualities.append(factuality)
+        if ev_sents:
+            selected_evidences = self.select_evidence(claim, ev_sents)   # we need to know the line and the page the info was taken from
+            selected_ev_sents = [evidence[2] for evidence in selected_evidences]
+            atomic_claims = self.process_claim(claim)
 
-        return {'factuality': total_factuality / len(atomic_claims),
-                'factualities': factualities,
-                'evidences': [(evidence[0], evidence[1]) for evidence in selected_evidences]}
+            total_factuality = 0
+            factualities = []
+            for atomic_claim in atomic_claims:
+                factuality = self.verify_claim(atomic_claim, selected_ev_sents)
+                total_factuality += 1 if factuality == Fact.SUPPORTED else 0
+                factualities.append(factuality)
+
+            output['factuality'] = total_factuality / len(atomic_claims)
+            output['factualities'] = factualities
+            output['evidences'] = [(evidence[0], evidence[1]) for evidence in selected_evidences]
+        return output
 
     @staticmethod
     def process_claim(claim: str) -> List[str]:
@@ -150,7 +156,7 @@ class TestPipeline(ModelPipeline):
             lines = db.get_doc_lines(word)
 
         if not lines:
-            raise
+            return []
 
         lines = process_lines(lines)
         processed_lines = []

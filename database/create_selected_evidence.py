@@ -40,7 +40,7 @@ dataset_raw = Dataset.from_sql("""select dd.id, dd.claim, docs.text, docs.docume
                                       from def_dataset dd
                                         join documents docs on docs.document_id = dd.evidence_wiki_url
                                         left join selected_evidence se on (dd.id, docs.document_id) = (se.claim_id, se.document_id)
-                                      where se.evidence_lines is null
+                                      where se.evidence_lines is null and docs.text != ''
                                       group by dd.id, docs.document_id
                                 """,
                                con=DB_URL)

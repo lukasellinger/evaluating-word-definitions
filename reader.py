@@ -40,3 +40,11 @@ class JSONLineReader(Reader):
         for line in lines:
             json.dump(line, file)
             file.write('\n')
+
+
+class JSONReader(Reader):
+    """Reader for .json files."""
+
+    def process(self, file):
+        """Read file as json object."""
+        return json.load(file)
