@@ -21,14 +21,14 @@ class Pipeline:
     def __init__(self):
       self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    def verify(self, word: str, claim: str) -> Dict:
+    def verify(self, word: str, claim: str, only_intro: bool = False) -> Dict:
         """
         Verify a claim related to a word.
         :param word: Word associated to the claim.
         :param claim: Claim to be verified.
         :return: dict containing factuality, atomic claim factualities and selected evidences.
         """
-        ev_sents = self.fetch_evidence(word)
+        ev_sents = self.fetch_evidence(word, only_intro)
         selected_evidences = self.select_evidence(claim, ev_sents)   # we need to know the line and the page the info was taken from
         selected_ev_sents = [evidence[2] for evidence in selected_evidences]
         atomic_claims = self.process_claim(claim)
@@ -49,10 +49,11 @@ class Pipeline:
         """Process a claim. E.g. split it into its atomic facts."""
         return [claim]
 
-    def fetch_evidence(self, word: str) -> List[Tuple[str, List[str], List[str]]]:
+    def fetch_evidence(self, word: str, only_intro: bool = False) -> List[Tuple[str, List[str], List[str]]]:
         """
         Fetch the information of the word inside the knowledge base.
         :param word: Word, for which we need information.
+        :param only_intro: Whether to only get text of the intro section. Default: True.
         :return: List of sentences, representing all information known to the word.
         """
 
@@ -88,6 +89,7 @@ class ModelPipeline(Pipeline):
             selection_model = EvidenceSelectionModel(model).to(self.device)
         self.selection_model = selection_model
         self.selection_model_tokenizer = selection_model_tokenizer
+        self.selection_model.eval()
 
         if not verification_model:
             model_name = "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7"
@@ -96,6 +98,7 @@ class ModelPipeline(Pipeline):
             verification_model = ClaimVerificationModel(model).to(self.device)
         self.verification_model = verification_model
         self.verification_model_tokenizer = verification_model_tokenizer
+        self.verification_model.eval()
 
     def _build_selection_model_input(self, claim: str, sentences: List[str]):
         encoded_sequence = []
@@ -142,9 +145,12 @@ class ModelPipeline(Pipeline):
 class TestPipeline(ModelPipeline):
     """Pipeline used for test purposes."""
 
-    def fetch_evidence(self, word: str) -> list[tuple[str, list[str], list[str]]]:
+    def fetch_evidence(self, word: str, only_intro: bool = False) -> list[tuple[str, list[str], list[str]]]:
         with FeverDocDB() as db:
             lines = db.get_doc_lines(word)
+
+        if not lines:
+            raise
 
         lines = process_lines(lines)
         processed_lines = []
@@ -190,9 +196,9 @@ class WikiPipeline(ModelPipeline):
                          verification_model_tokenizer)
         self.wiki = Wikipedia()
 
-    def fetch_evidence(self, word: str) -> list[tuple[str, list[str], list[str]]]:
-        summaries = self.wiki.get_summaries(word, k=20)  # TODO line numbers
-        return [(page, [str(i) for i in range(len(lines))], lines) for page, lines in summaries]
+    def fetch_evidence(self, word: str, only_intro: bool = False) -> list[tuple[str, list[str], list[str]]]:
+        texts = self.wiki.get_texts(word, k=20, only_intro=only_intro)  # TODO line numbers
+        return [(page, [str(i) for i in range(len(lines))], lines) for page, lines in texts]
 
     def select_evidence(self, claim: str, evidence_list: list[tuple[str, list[str], list[str]]], top_k=3,
                         max_evidence_count=3) -> list[tuple[str, str, str]]:

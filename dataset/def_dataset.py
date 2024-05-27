@@ -70,11 +70,13 @@ def process_data(data, max_length=2000, k=3):
     """Filters text longer than max_length words and evidence list larger than k."""
     def filter_entry(entry):
         text = process_sentence(entry['text'])
-        evidence_lines = entry['evidence_lines']
+        evidence_lines = entry.get('evidence_lines')
+        if evidence_lines is None:
+            evidence_lines = ""
         # we do not want to have claims with evidence groups > k. There are only about 40 with more
         # than 3 lines in a group.
         return len(' '.join(text).split()) < max_length and all(
-            len(group) <= k for group in evidence_lines.split(';'))
+            len(group.split()) <= k for group in evidence_lines.split(';'))
 
     return data.filter(lambda i: filter_entry(i))
 
@@ -158,9 +160,9 @@ class DefinitionDataset(Dataset):
                     "claim_length": torch.tensor(claim_lengths), "doc_length": torch.tensor(doc_lengths)}
 
     def get_batch_input_claim_verification(self, batch):
-        all_input_ids, all_labels, hypothesis_lengths = [], [], []
+        all_input_ids, all_labels, hypothesis_lengths, claim_mask = [], [], [], []
 
-        for data in batch:
+        for i, data in enumerate(batch):
             evidence_lines = set(re.split(r'[;,]',  data['evidence_lines']))
             hypothesis = ""
             lines = process_lines(data['lines'])
@@ -171,19 +173,32 @@ class DefinitionDataset(Dataset):
                     continue
                 hypothesis += text
                 hypothesis += ' '
-            encoded_sequence = self.tokenizer.encode(hypothesis, data['claim'])
-            all_input_ids.append(encoded_sequence)
+
+            if (facts := data['atomic_facts']) is not None:
+                for fact in facts.split('--;--'):
+                    claim_mask.append(i)
+                    all_input_ids.append(self.tokenizer.encode(hypothesis, fact))
+            else:
+                all_input_ids.append(self.tokenizer.encode(hypothesis, data['claim']))
+                claim_mask.append(i)
 
             if data['label'] == 'SUPPORTS':
-                all_labels.append(Fact.SUPPORTED.value)
+                all_labels.append(Fact.SUPPORTED.to_factuality())
             else:
-                all_labels.append(Fact.NOT_SUPPORTED.value)
+                all_labels.append(Fact.NOT_SUPPORTED.to_factuality())
             hypothesis_lengths.append(len(hypothesis))
+
+        unique_claim_numbers = set(claim_mask)
+        claim_masks = []
+        for num in unique_claim_numbers:
+            claim_masks.append([1 if val == num else 0 for val in claim_mask])
+
         attention_masks = build_attention_masks(all_input_ids,
                                                 pad_token=self.tokenizer.pad_token_id)
 
         model_input = {'input_ids': torch.tensor(all_input_ids).to(self.device),
-                       'attention_mask': torch.tensor(attention_masks).to(self.device)}
+                       'attention_mask': torch.tensor(attention_masks).to(self.device),
+                       'claim_mask': torch.tensor(claim_masks).to(self.device)}
         labels = torch.tensor(all_labels).to(self.device)
         return model_input, labels, hypothesis_lengths
 

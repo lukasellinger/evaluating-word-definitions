@@ -2,7 +2,6 @@
 from typing import List
 
 import spacy
-from spacy import displacy
 
 nlp = spacy.load("en_core_web_lg")
 german_nlp = spacy.load("de_core_news_lg")
@@ -87,7 +86,7 @@ def get_ent_type(sentence: str) -> str:
 def split_into_sentences(text: str) -> List[str]:
     """Split a text into sentences."""
     doc = nlp(text)
-    return [sent.text for sent in doc.sents]
+    return [sent.text.strip() for sent in doc.sents]
 
 
 def get_first_entity(text: str) -> str:

@@ -1,5 +1,7 @@
 import re
 import time
+from datetime import datetime, timedelta
+import random
 
 import requests
 
@@ -31,10 +33,17 @@ VALUES (?, ?);
 """
 
 API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
-headers = {"Authorization": "Bearer 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"}
+tokens = {
+    1: {'token': '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',
+        'cooldown': False},
+    2: {'token': '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',
+        'cooldown': False}
+}
+headers = {"Authorization": "Bearer {token}"}
 
 
-def query(payload):
+def query(payload, token):
+    headers['Authorization'] = headers['Authorization'].format(token=token)
     response = requests.post(API_URL, headers=headers, json=payload)
     return response.json()
 
@@ -92,17 +101,33 @@ with FeverDocDB() as db:
                         LEFT JOIN atomic_facts af on af.claim_id = dd.id
                         WHERE af.id is NULL and length(claim) > 30""")
 
+
 for claim_id, claim in claims:
-    time.sleep(0.5)
-    output = query({'inputs': get_prompt(claim), 'parameters': {'temperature': 0.01, 'return_full_text': False}})
+    time.sleep(0.7)
+    filtered_tokens = {k: v for k, v in tokens.items() if v['cooldown'] == False}
+
+    if filtered_tokens:
+        key, token = random.choice(list(filtered_tokens.items()))
+        print(f'using {key}')
+    else:
+        print('all tokens in cooldown. sleeping till next hour.')
+        now = datetime.now()
+        next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+        seconds_until_next_hour = (next_hour - now).total_seconds()
+        time.sleep(seconds_until_next_hour)
+        for key in tokens:
+            tokens[key]['cooldown'] = False
+        token = tokens[1]
+
+    output = query({'inputs': get_prompt(claim), 'parameters': {'temperature': 0.01, 'return_full_text': False}}, token=token.get('token'))
     if isinstance(output, dict):
         print('sleeping')
-        time.sleep(20)
-        output = query({'inputs': get_prompt(claim),
-                        'parameters': {'temperature': 0.01, 'return_full_text': False}})
-        if isinstance(output, dict):
-            print(f'skipping claim_id {claim_id}')
-            continue
+        if str(output.get('error', '')).startswith('Rate limit reached.'):  # api hour limit reached
+            token['cooldown'] = True
+        else:
+            time.sleep(20)
+        print(f'skipping claim_id {claim_id}')
+        continue
 
     answer = output[0].get('generated_text')
     if answer:
