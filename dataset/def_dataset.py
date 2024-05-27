@@ -174,7 +174,7 @@ class DefinitionDataset(Dataset):
                 hypothesis += text
                 hypothesis += ' '
 
-            if (facts := data['atomic_facts']) is not None:
+            if (facts := data.get('atomic_facts')) is not None:
                 for fact in facts.split('--;--'):
                     claim_mask.append(i)
                     all_input_ids.append(self.tokenizer.encode(hypothesis, fact))

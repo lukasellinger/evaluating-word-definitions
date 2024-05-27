@@ -1,0 +1,10 @@
+"""General configuration for the project."""
+
+from pathlib import Path
+
+PROJECT_DIR = Path(__file__).parent
+DB_URL = f"sqlite:///{PROJECT_DIR.joinpath('database/fever.db')}"
+
+HF_WRITE_TOKEN = ''
+
+HF_READ_TOKENS = ['', '', '']

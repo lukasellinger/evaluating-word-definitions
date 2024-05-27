@@ -5,6 +5,7 @@ import random
 
 import requests
 
+from config import HF_READ_TOKENS
 from database.db_retriever import FeverDocDB
 
 CREATE_ATOMIC_FACTS = """
@@ -34,11 +35,11 @@ VALUES (?, ?);
 
 API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
 tokens = {
-    1: {'token': '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',
+    1: {'token': HF_READ_TOKENS[0],
         'cooldown': False},
-    2: {'token': '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',
+    2: {'token': HF_READ_TOKENS[1],
         'cooldown': False},
-    3: {'token': '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',
+    3: {'token': HF_READ_TOKENS[2],
         'cooldown': False}
 }
 headers = {"Authorization": "Bearer {token}"}
