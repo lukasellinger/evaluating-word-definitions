@@ -1,6 +1,12 @@
 from datasets import Dataset, DatasetDict
+from transformers import AutoModel
 
 from config import DB_URL, HF_WRITE_TOKEN
+from models.evidence_selection_model import EvidenceSelectionModel
+
+model = AutoModel.from_pretrained('selection_model', trust_remote_code=True, add_pooling_layer=False, safe_serialization=True)
+model.push_to_hub("lukasellinger/evidence_selection_model-v1", token=HF_WRITE_TOKEN, private=True)
+
 
 dataset_query = """
 with unique_claims as (

@@ -4,15 +4,16 @@
 
 To set up the project environment, follow these steps:
 
-1. Install the required Python packages by running:
+1. Install the required Python packages and models by running:
 ```
 pip install -r requirements.txt
+python setup.py
 ```
-2. Download spacy models
+2. Setup config file and add necessary attributes:
 ```
-python -m spacy download en_core_web_lg
-python -m spacy download de_core_news_lg
+cp config.py.template config.py
+nano config.py
 ```
 
 ## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+Lukas Ellinger (lukas.ellinger@tum.de)

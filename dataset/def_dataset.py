@@ -15,10 +15,6 @@ from utils import convert_to_unicode
 class Fact(Enum):
     """Represents the types a fact can have."""
 
-    #SUPPORTS = 0
-    #REFUTES = 2
-    #NOT_ENOUGH_INFO = 1  # TODO data needed, FEVER has empty documents
-
     SUPPORTED = 0
     NOT_SUPPORTED = 1
 
