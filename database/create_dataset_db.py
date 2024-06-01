@@ -5,8 +5,8 @@ from tqdm import tqdm
 from config import PROJECT_DIR
 from database.db_retriever import FeverDocDB
 from reader import JSONLineReader
-from spacy_utils import get_first_compound_or_word, get_words_before_root
-from utils import title_to_db_page
+from utils.spacy_utils import get_first_compound_or_word, get_words_before_root
+from utils.utils import title_to_db_page
 
 CREATE_DEF_DATASET = """
 CREATE TABLE IF NOT EXISTS def_dataset (
@@ -46,7 +46,6 @@ reader = JSONLineReader()
 for set_type, path in zip(['train', 'dev', 'test'],
                           [train_file_path, dev_file_path, test_file_path]):
     dataset = reader.read(path)
-    counter = 0
     with FeverDocDB() as db:
         for entry in tqdm(dataset, desc='Inserting Entry'):
             if entry['evidence_wiki_url'] is None:
@@ -56,8 +55,5 @@ for set_type, path in zip(['train', 'dev', 'test'],
                 result = db.read(EXIST_WIKI_PAGE, (page,))
                 document_id = page if result else None
                 entry['evidence_wiki_url'] = document_id if document_id else None
-                if document_id:
-                    counter += 1
             entry['set_type'] = set_type
-            #db.write(INSERT_ENTRY, tuple(entry.values()))
-    print(counter)
+            db.write(INSERT_ENTRY, tuple(entry.values()))

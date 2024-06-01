@@ -17,7 +17,7 @@ from losses.supcon import SupConLoss
 from models.evidence_selection_model import EvidenceSelectionModel, DummyEvidenceSelectionModel
 import torch.nn.functional as F
 
-from utils import calc_bin_stats, plot_graph
+from utils.utils import calc_bin_stats, plot_graph
 
 dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id, docs.text, 
                                          docs.lines, group_concat(dd.evidence_sentence_id) as evidence_lines

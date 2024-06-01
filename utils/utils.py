@@ -124,3 +124,10 @@ def remove_non_alphabetic_start_end(text):
     text = re.sub(r'[^a-zA-Z]+$', '', text)
     text = re.sub(r'^[^a-zA-Z]+', '', text)
     return text.strip()
+
+
+def pretty_string_list(lst: List) -> str:
+    output = ""
+    for item in lst:
+        output += str(item) + '\n'
+    return output

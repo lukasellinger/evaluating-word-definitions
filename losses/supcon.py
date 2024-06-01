@@ -4,6 +4,7 @@ import torch
 from torch import nn
 from torch.nn.functional import cosine_similarity
 
+
 class SupConLoss(nn.Module):
     """Supervised Contrastive Loss."""
     def __init__(self, temperature=0.5):

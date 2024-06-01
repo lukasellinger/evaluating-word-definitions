@@ -4,6 +4,7 @@ import time
 import requests
 from transformers import pipeline
 
+from config import HF_READ_TOKENS
 from database.db_retriever import FeverDocDB
 
 CREATE_CLAIM_TRANSLATIONS = """
@@ -20,7 +21,7 @@ VALUES (?, ?);
 """
 
 API_URL = "https://api-inference.huggingface.co/models/Helsinki-NLP/opus-mt-en-de"
-headers = {"Authorization": "Bearer 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"}
+headers = {"Authorization": f"Bearer {HF_READ_TOKENS[0]}"}
 
 
 def query(payload):
@@ -37,15 +38,6 @@ with FeverDocDB() as db:
 
 pipe = pipeline("translation", model="Helsinki-NLP/opus-mt-en-de")
 for claim_id, claim in claims:
-    # time.sleep(0.5)
-    # output = query({'inputs': claim})
-    # if isinstance(output, dict):
-    #     print('sleeping')
-    #     time.sleep(20)
-    #     output = pipe = pipeline("translation", model="Helsinki-NLP/opus-mt-en-de")
-    #     if isinstance(output, dict):
-    #         print(f'skipping claim_id {claim_id}')
-    #         continue
     output = pipe(claim)
     answer = output[0].get('translation_text')
     if answer:

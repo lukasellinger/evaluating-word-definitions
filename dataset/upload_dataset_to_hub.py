@@ -1,12 +1,6 @@
 from datasets import Dataset, DatasetDict
-from transformers import AutoModel
 
 from config import DB_URL, HF_WRITE_TOKEN
-from models.evidence_selection_model import EvidenceSelectionModel
-
-model = AutoModel.from_pretrained('selection_model', trust_remote_code=True, add_pooling_layer=False, safe_serialization=True)
-model.push_to_hub("lukasellinger/evidence_selection_model-v1", token=HF_WRITE_TOKEN, private=True)
-
 
 dataset_query = """
 with unique_claims as (
@@ -30,6 +24,20 @@ where set_type='{set_type}'
 group by dd.id, evidence_annotation_id, evidence_wiki_url
 """
 
+dataset_query = """
+with unique_claims as (
+select distinct dd.id, dd.claim, dd.label, dd.evidence_wiki_url, dd.set_type
+from def_dataset dd)
+select uq.id, uq.claim, uq.label, docs.document_id, docs.text,
+       docs.lines, se.evidence_lines as evidence_lines, GROUP_CONCAT(af.fact, '--;--') as atomic_facts
+from unique_claims as uq
+    join selected_evidence se on uq.id = se.claim_id
+    join documents docs on docs.document_id = uq.evidence_wiki_url
+    left join atomic_facts af on af.claim_id = uq.id
+where uq.set_type = '{set_type}' and 1=1
+group by uq.id, docs.document_id
+"""
+
 
 train_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='train'), con=DB_URL)
 dev_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='dev'), con=DB_URL)
@@ -41,4 +49,4 @@ combined_datasets = DatasetDict({
     "test": test_dataset_raw
 })
 
-combined_datasets.push_to_hub("lukasellinger/evidence_selection-v1", private=True, token=HF_WRITE_TOKEN)
+combined_datasets.push_to_hub("lukasellinger/claim_verification_atomic-v1", private=True, token=HF_WRITE_TOKEN)

@@ -2,17 +2,16 @@
 from typing import List, Dict, Tuple
 
 import torch
-from sklearn.metrics import accuracy_score, f1_score
-from tqdm import tqdm
 from transformers import BigBirdModel, AutoTokenizer, AutoModelForSequenceClassification
 from torch.nn.functional import cosine_similarity
 
 from database.db_retriever import FeverDocDB
 from dataset.def_dataset import Fact, process_sentence, process_lines, split_text
+from fact_extractor import FactExtractor
 from fetchers.wikipedia import Wikipedia
 from models.claim_verification_model import ClaimVerificationModel
 from models.evidence_selection_model import EvidenceSelectionModel
-from utils import rank_docs
+from utils.utils import rank_docs
 
 
 class Pipeline:
@@ -43,7 +42,7 @@ class Pipeline:
             for atomic_claim in atomic_claims:
                 factuality = self.verify_claim(atomic_claim, selected_ev_sents)
                 total_factuality += 1 if factuality == Fact.SUPPORTED else 0
-                factualities.append(factuality)
+                factualities.append((atomic_claim, factuality))
 
             output['factuality'] = total_factuality / len(atomic_claims)
             output['factualities'] = factualities
@@ -201,6 +200,11 @@ class WikiPipeline(ModelPipeline):
         super().__init__(selection_model, selection_model_tokenizer, verification_model,
                          verification_model_tokenizer)
         self.wiki = Wikipedia()
+        self.fact_extractor = FactExtractor()
+
+    def process_claim(self, claim: str) -> list[str]:
+        facts = self.fact_extractor.get_atomic_facts(claim)
+        return facts.get('facts') if facts.get('facts') else [claim]
 
     def fetch_evidence(self, word: str, only_intro: bool = False) -> list[tuple[str, list[str], list[str]]]:
         texts = self.wiki.get_texts(word, k=20, only_intro=only_intro)  # TODO line numbers
@@ -227,3 +231,8 @@ class WikiPipeline(ModelPipeline):
 
         sorted_sentences = sorted(sentence_similarities, key=lambda x: x[3], reverse=True)
         return [(sentence[0], sentence[1], sentence[2]) for sentence in sorted_sentences[:top_k]]
+
+    def mark_summary_sents(self, word):
+        ev_sentences_short = self.fetch_evidence(word, only_intro=True)
+        max_summary_line_numbers = [(doc[0], max(int(line_number) for line_number in doc[1])) for doc in ev_sentences_short]
+        return dict(max_summary_line_numbers)

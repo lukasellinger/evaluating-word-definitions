@@ -9,7 +9,7 @@ from typing import Tuple, List
 import torch
 from torch.utils.data import Dataset
 
-from utils import convert_to_unicode
+from utils.utils import convert_to_unicode
 
 
 class Fact(Enum):
@@ -63,7 +63,7 @@ def split_text(line: str) -> Tuple[str, str]:
 
 
 def process_data(data, max_length=2000, k=3):
-    """Filters text longer than max_length words and evidence list larger than k."""
+    """Filters text longer than max_length chars and evidence list larger than k."""
     def filter_entry(entry):
         text = process_sentence(entry['text'])
         evidence_lines = entry.get('evidence_lines')

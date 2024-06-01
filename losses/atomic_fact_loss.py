@@ -18,8 +18,9 @@ class AtomicFactsLoss(nn.Module):
         # Loss for true facts
         #loss_true = -torch.log(atomic_preds.squeeze(1)) * labels
         b = a.masked_fill(torch.eq(a, 0), 1)
-        loss_true = -torch.log(b)
-        loss_true = loss_true.sum(dim=1) / atomic_facts_count
+        #loss_true = -torch.log(b)
+        loss_true = torch.relu(self.delta - b)
+        loss_true = loss_true.sum(dim=1) * atomic_facts_count # / atomic_facts_count
         #mean_loss_true = loss_true.sum() / labels.sum()
 
         # Loss for false facts

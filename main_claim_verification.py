@@ -10,7 +10,7 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from config import DB_URL
 from dataset.def_dataset import DefinitionDataset
 from models.claim_verification_model import ClaimVerificationModel
-from utils import calc_bin_stats, plot_graph
+from utils.utils import calc_bin_stats, plot_graph
 
 # dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id, docs.text,
 #                                          docs.lines, group_concat(dd.evidence_sentence_id) as evidence_lines

@@ -6,7 +6,7 @@ from datasets import Dataset
 from tqdm import tqdm
 
 from reader import JSONLineReader
-from spacy_utils import get_ent_type, recognize_definition
+from utils.spacy_utils import get_ent_type, recognize_definition
 
 
 def check_stats(dataset: Dataset) -> dict:

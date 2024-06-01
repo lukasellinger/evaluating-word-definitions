@@ -3,10 +3,9 @@ import re
 from typing import List, Tuple
 
 import requests
-from bs4 import BeautifulSoup
 from requests import Response
 
-from spacy_utils import split_into_sentences
+from utils.spacy_utils import split_into_sentences
 
 
 class Wikipedia:
@@ -98,4 +97,4 @@ class Wikipedia:
 
 if __name__ == "__main__":
     wiki = Wikipedia()
-    print(wiki.get_texts("Hitler", k=20))
+    print(wiki.get_texts("Ferrari", k=20))
