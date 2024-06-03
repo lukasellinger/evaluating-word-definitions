@@ -110,9 +110,15 @@ def get_first_compound_or_word(text: str) -> str:
     return " ".join(compound)
 
 
-def get_words_before_root(sentence: str) -> str:
+def get_words_before_root(sentence: str, lang='en') -> str:
     """Get all words before the root of the sentence"""
-    doc = nlp(sentence)
+    if lang == 'en':
+        doc = nlp(sentence)
+    elif lang == 'ger':
+        doc = german_nlp(sentence)
+    else:
+        raise ValueError(f'Language {lang} not supported.')
+
     root_token = 'ROOT'
     for token in doc:
         if token.dep_ == "ROOT":
@@ -132,3 +138,18 @@ def to_nltk_tree(node):
         return {tok_format(node): [to_nltk_tree(child) for child in node.children]}
     else:
         return tok_format(node)
+
+
+def remove_starting_article(txt: str, lang='en'):
+    if lang == 'en':
+        doc = nlp(txt)
+    elif lang == 'ger':
+        doc = german_nlp(txt)
+    else:
+        raise ValueError(f'Language {lang} not supported.')
+
+    first_token = doc[0]
+    if first_token.pos_ == 'DET':
+        txt = txt[len(first_token) + 1:]
+        return txt
+    return txt

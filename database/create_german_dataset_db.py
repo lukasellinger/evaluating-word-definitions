@@ -4,21 +4,25 @@ from datasets import load_dataset, concatenate_datasets
 from tqdm import tqdm
 
 from database.db_retriever import FeverDocDB
+from utils.spacy_utils import remove_starting_article
 
 CREATE_GERMAN_DATASET = """
 CREATE TABLE IF NOT EXISTS german_dpr_dataset (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     question TEXT,
-    answer TEXT,
+    claim TEXT,
+    english_claim TEXT,
     fact TEXT,
+    word VARCHAR,
+    english_word VARCHAR,
     context TEXT,
     label VARCHAR
 );
 """
 
 INSERT_ENTRY = """
-INSERT INTO german_dpr_dataset (question, answer, fact, context, label)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO german_dpr_dataset (question, claim, fact, word, context, label)
+VALUES (?, ?, ?, ?, ?, ?)
 """
 
 QUESTION_CONVERSION = {"Was ist": "{} ist {}.",
@@ -35,9 +39,13 @@ def create_fact(question_sent, answer_sent):
     for key, value in QUESTION_CONVERSION.items():
         if question_sent.startswith(key):
             entity = question_sent[len(key) + 1: -1]
+            entity = remove_starting_article(entity, lang='ger')  # remove leading article
+            if len(entity.split(' ')) > 2:  # right now we do not want entities longer than 2 words
+                continue
+
             fact_sent = value.format(entity, answer_sent).strip()
             fact_sent = fact_sent[0].upper() + fact_sent[1:]
-            return fact_sent
+            return fact_sent, entity
 
 
 def is_def_question(question_sent):
@@ -75,16 +83,19 @@ with FeverDocDB() as db:
     for entry in tqdm(filtered_dataset_dpr, desc='Inserting Entry'):
         question = entry['question']
         answer = entry['answers'][0]  # always only 1 answer
-        fact = create_fact(entry['question'].strip(), answer.strip(' .'))
+        if output := create_fact(entry['question'].strip(), answer.strip(' .')):
+            fact, entity = output
+        else:
+            continue
 
         for pos_ctx in entry['positive_ctxs']['text']:
             label = 'SUPPORTED'
-            db.write(INSERT_ENTRY, (question, answer, fact, pos_ctx, label))
+            db.write(INSERT_ENTRY, (question, answer, fact, entity, pos_ctx, label))
 
-        for neg_ctx in entry['negative_ctxs']['text']:
-            label = 'REFUTED'
-            db.write(INSERT_ENTRY, (question, answer, fact, neg_ctx, label))
+        # for neg_ctx in entry['negative_ctxs']['text']:
+        #    label = 'REFUTED'
+        #   db.write(INSERT_ENTRY, (question, answer, fact, entity, neg_ctx, label))
 
-        for neg_ctx in entry['hard_negative_ctxs']['text']:
-            label = 'NOT ENOUGH INFO'  # need to be careful. Ctx might also support fact.
-            db.write(INSERT_ENTRY, (question, answer, fact, neg_ctx, label))
+        # for neg_ctx in entry['hard_negative_ctxs']['text']:
+        #   label = 'NOT ENOUGH INFO'  # need to be careful. Ctx might also support fact.
+        #    db.write(INSERT_ENTRY, (question, answer, fact, entity, neg_ctx, label))

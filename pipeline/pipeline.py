@@ -20,7 +20,7 @@ class Pipeline:
     def __init__(self):
       self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    def verify(self, word: str, claim: str, only_intro: bool = False) -> Dict:
+    def verify(self, word: str, claim: str, only_intro: bool = False, atomic_claims = None) -> Dict:
         """
         Verify a claim related to a word.
         :param word: Word associated to the claim.
@@ -35,7 +35,9 @@ class Pipeline:
         if ev_sents:
             selected_evidences = self.select_evidence(claim, ev_sents)   # we need to know the line and the page the info was taken from
             selected_ev_sents = [evidence[2] for evidence in selected_evidences]
-            atomic_claims = self.process_claim(claim)
+
+            if not atomic_claims:  # in order to use already computed atomic claims
+                atomic_claims = self.process_claim(claim)
 
             total_factuality = 0
             factualities = []
