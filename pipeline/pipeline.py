@@ -17,10 +17,12 @@ from utils.utils import rank_docs
 class Pipeline:
     """General Pipeline. Implement fetch_evidence, select_evidence, verify_claim."""
 
-    def __init__(self):
-      self.device = "cuda" if torch.cuda.is_available() else "cpu"
+    def __init__(self, word_lang: str = None):
+        self.word_lang = word_lang
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    def verify(self, word: str, claim: str, only_intro: bool = False, atomic_claims = None) -> Dict:
+
+    def verify(self, word: str, claim: str, fallback_word: str = None, split_facts: bool = True, only_intro: bool = True, atomic_claims = None) -> Dict:
         """
         Verify a claim related to a word.
         :param word: Word associated to the claim.
@@ -30,14 +32,14 @@ class Pipeline:
         output = {'factuality': -1,
                   'factualities': [],
                   'evidences': []}
-        ev_sents = self.fetch_evidence(word, only_intro)
+        ev_sents = self.fetch_evidence(word, fallback_word, only_intro)
 
         if ev_sents:
             selected_evidences = self.select_evidence(claim, ev_sents)   # we need to know the line and the page the info was taken from
             selected_ev_sents = [evidence[2] for evidence in selected_evidences]
 
             if not atomic_claims:  # in order to use already computed atomic claims
-                atomic_claims = self.process_claim(claim)
+                atomic_claims = self.process_claim(claim, split_facts=split_facts)
 
             total_factuality = 0
             factualities = []
@@ -48,18 +50,19 @@ class Pipeline:
 
             output['factuality'] = total_factuality / len(atomic_claims)
             output['factualities'] = factualities
-            output['evidences'] = [(evidence[0], evidence[1]) for evidence in selected_evidences]
+            output['evidences'] = selected_evidences
         return output
 
     @staticmethod
-    def process_claim(claim: str) -> List[str]:
+    def process_claim(claim: str, split_facts: bool = True) -> List[str]:
         """Process a claim. E.g. split it into its atomic facts."""
         return [claim]
 
-    def fetch_evidence(self, word: str, only_intro: bool = False) -> List[Tuple[str, List[str], List[str]]]:
+    def fetch_evidence(self, word: str, fallback_word: str = None, only_intro: bool = True) -> List[Tuple[str, List[str], List[str]]]:
         """
         Fetch the information of the word inside the knowledge base.
         :param word: Word, for which we need information.
+        :param fallback_word:
         :param only_intro: Whether to only get text of the intro section. Default: True.
         :return: List of sentences, representing all information known to the word.
         """
@@ -85,8 +88,8 @@ class ModelPipeline(Pipeline):
     """Pipeline using llm models."""
 
     def __init__(self, selection_model=None, selection_model_tokenizer=None,
-                 verification_model=None, verification_model_tokenizer=None):
-        super().__init__()
+                 verification_model=None, verification_model_tokenizer=None, word_lang=None):
+        super().__init__(word_lang)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
         if not selection_model:
@@ -152,7 +155,7 @@ class ModelPipeline(Pipeline):
 class TestPipeline(ModelPipeline):
     """Pipeline used for test purposes."""
 
-    def fetch_evidence(self, word: str, only_intro: bool = False) -> list[tuple[str, list[str], list[str]]]:
+    def fetch_evidence(self, word: str, fallback_word: str = None, only_intro: bool = True) -> list[tuple[str, list[str], list[str]]]:
         with FeverDocDB() as db:
             lines = db.get_doc_lines(word)
 
@@ -170,13 +173,14 @@ class TestPipeline(ModelPipeline):
         return [(word, line_numbers, processed_lines)]
 
     @staticmethod
-    def process_claim(claim: str) -> list[str]:
-        #with FeverDocDB() as db:
-        #    facts = db.read("""SELECT DISTINCT af.fact
-        #                                 FROM atomic_facts af
-        #                                 JOIN def_dataset dd ON af.claim_id = dd.id
-        #                                 WHERE dd.claim = ?""", params=(claim,))
-        #return [fact[0] for fact in facts] if facts else [claim]
+    def process_claim(claim: str,  split_facts: bool = True) -> list[str]:
+        if split_facts:
+            with FeverDocDB() as db:
+                facts = db.read("""SELECT DISTINCT af.fact
+                                            FROM atomic_facts af
+                                            JOIN def_dataset dd ON af.claim_id = dd.id
+                                            WHERE dd.claim = ?""", params=(claim,))
+            return [fact[0] for fact in facts] if facts else [claim]
         return [claim]
 
     def select_evidence(self, claim: str, evidence_list: list[tuple[str, list[str], list[str]]], top_k=3) -> list[tuple[str, str, str]]:
@@ -198,18 +202,21 @@ class WikiPipeline(ModelPipeline):
     """Pipeline using Wikipedia."""
 
     def __init__(self, selection_model=None, selection_model_tokenizer=None,
-                 verification_model=None, verification_model_tokenizer=None):
+                 verification_model=None, verification_model_tokenizer=None, word_lang=None):
         super().__init__(selection_model, selection_model_tokenizer, verification_model,
-                         verification_model_tokenizer)
+                         verification_model_tokenizer, word_lang)
         self.wiki = Wikipedia()
         self.fact_extractor = FactExtractor()
 
-    def process_claim(self, claim: str) -> list[str]:
-        facts = self.fact_extractor.get_atomic_facts(claim)
-        return facts.get('facts') if facts.get('facts') else [claim]
+    def process_claim(self, claim: str, split_facts: bool = True) -> list[str]:
+        if split_facts:
+            facts = self.fact_extractor.get_atomic_facts(claim)
+            return facts.get('facts') if facts.get('facts') else [claim]
+        return [claim]
 
-    def fetch_evidence(self, word: str, only_intro: bool = False) -> list[tuple[str, list[str], list[str]]]:
-        texts = self.wiki.get_texts(word, k=20, only_intro=only_intro)  # TODO line numbers
+    def fetch_evidence(self, word: str, fallback_word: str = None, only_intro: bool = True) -> list[tuple[str, list[str], list[str]]]:
+        texts = self.wiki.get_pages(word, fallback_word, self.word_lang, only_intro=only_intro)
+        #texts = self.wiki.get_texts(word, k=20, only_intro=only_intro)  # TODO line numbers
         return [(page, [str(i) for i in range(len(lines))], lines) for page, lines in texts]
 
     def select_evidence(self, claim: str, evidence_list: list[tuple[str, list[str], list[str]]], top_k=3,

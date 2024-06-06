@@ -26,7 +26,7 @@ def get_antonyms(word: str) -> List:
     return antonyms
 
 
-dataset = Dataset.from_sql("SELECT word, claim FROM german_dataset", con=DB_URL)
+dataset = Dataset.from_sql("SELECT word, claim FROM german_dataset WHERE 1=1", con=DB_URL)
 
 pipe_to_de = pipeline("translation", model="Helsinki-NLP/opus-mt-en-de")
 pipe_to_en = pipeline("translation", model="Helsinki-NLP/opus-mt-de-en")

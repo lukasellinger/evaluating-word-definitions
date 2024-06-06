@@ -1,4 +1,5 @@
 """General utils for processing."""
+import itertools
 import re
 from typing import List, Dict
 
@@ -131,3 +132,18 @@ def pretty_string_list(lst: List) -> str:
     for item in lst:
         output += str(item) + '\n'
     return output
+
+
+def generate_case_combinations(txt: str) -> List[str]:
+    words = txt.split()
+    combinations = []
+
+    # Generate all combinations of upper and lower case for the first letter of each word
+    for case_pattern in itertools.product(*[(word[0].lower(), word[0].upper()) for word in words]):
+        # Reconstruct the sentence with the current case pattern
+        combination = " ".join(
+            pattern + word[1:] for pattern, word in zip(case_pattern, words)
+        )
+        combinations.append(combination)
+
+    return combinations

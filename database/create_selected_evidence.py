@@ -31,8 +31,7 @@ with FeverDocDB() as db:
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model_name = 'Snowflake/snowflake-arctic-embed-m-long'
-finetuned_model = PROJECT_DIR.joinpath("selection_model")
-model = AutoModel.from_pretrained(finetuned_model, trust_remote_code=True)
+model = AutoModel.from_pretrained('lukasellinger/evidence_selection_model-v1', trust_remote_code=True, add_pooling_layer=False, safe_serialization=True)
 selection_model = EvidenceSelectionModel(model).to(device)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
