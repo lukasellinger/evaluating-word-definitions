@@ -44,6 +44,70 @@ class Pipeline:
             total_factuality = 0
             factualities = []
             for atomic_claim in atomic_claims:
+                atomic_claim = f'{fallback_word}: {atomic_claim}'
+                factuality = self.verify_claim(atomic_claim, selected_ev_sents)
+                total_factuality += 1 if factuality == Fact.SUPPORTED else 0
+                factualities.append((atomic_claim, factuality))
+
+            output['factuality'] = total_factuality / len(atomic_claims)
+            output['factualities'] = factualities
+            output['evidences'] = selected_evidences
+        return output
+
+    def verify1(self, word: str, claim: str, fallback_word: str = None, split_facts: bool = True, only_intro: bool = True, atomic_claims = None) -> Dict:
+        """
+        Verify a claim related to a word.
+        :param word: Word associated to the claim.
+        :param claim: Claim to be verified.
+        :return: dict containing factuality, atomic claim factualities and selected evidences.
+        """
+        output = {'factuality': -1,
+                  'factualities': [],
+                  'evidences': []}
+        ev_sents, wiki_word = self.fetch_evidence(word, fallback_word, only_intro)
+
+        if ev_sents:
+            if not atomic_claims:  # in order to use already computed atomic claims
+                atomic_claims = self.process_claim(claim, split_facts=split_facts)
+
+            total_factuality = 0
+            factualities = []
+            for atomic_claim in atomic_claims:
+                selected_evidences = self.select_evidence(atomic_claim, ev_sents)   # we need to know the line and the page the info was taken from
+                selected_ev_sents = [evidence[2] for evidence in selected_evidences]
+                atomic_claim = f'{wiki_word}: {atomic_claim}'
+                factuality = self.verify_claim(atomic_claim, selected_ev_sents)
+                total_factuality += 1 if factuality == Fact.SUPPORTED else 0
+                factualities.append((atomic_claim, factuality, selected_evidences))
+
+            output['factuality'] = total_factuality / len(atomic_claims)
+            output['factualities'] = factualities
+        return output
+
+    def verify2(self, word: str, claim: str, fallback_word: str = None, split_facts: bool = True, only_intro: bool = True, atomic_claims = None) -> Dict:
+        """
+        Verify a claim related to a word.
+        :param word: Word associated to the claim.
+        :param claim: Claim to be verified.
+        :return: dict containing factuality, atomic claim factualities and selected evidences.
+        """
+        output = {'factuality': -1,
+                  'factualities': [],
+                  'evidences': []}
+        ev_sents, wiki_word = self.fetch_evidence(word, fallback_word, only_intro)
+
+        if ev_sents:
+            claim = f"{wiki_word}: {claim}"
+            selected_evidences = self.select_evidence(claim, ev_sents)   # we need to know the line and the page the info was taken from
+            selected_ev_sents = [evidence[2] for evidence in selected_evidences]
+
+            if not atomic_claims:  # in order to use already computed atomic claims
+                atomic_claims = self.process_claim(claim, split_facts=split_facts)
+
+            total_factuality = 0
+            factualities = []
+            for atomic_claim in atomic_claims:
+                atomic_claim = f'{wiki_word}: {atomic_claim}'
                 factuality = self.verify_claim(atomic_claim, selected_ev_sents)
                 total_factuality += 1 if factuality == Fact.SUPPORTED else 0
                 factualities.append((atomic_claim, factuality))
@@ -170,7 +234,7 @@ class TestPipeline(ModelPipeline):
             line_number, text = split_text(line)
             processed_lines.append(text)
             line_numbers.append(line_number)
-        return [(word, line_numbers, processed_lines)]
+        return [(word, line_numbers, processed_lines)], fallback_word
 
     @staticmethod
     def process_claim(claim: str,  split_facts: bool = True) -> list[str]:
@@ -215,9 +279,9 @@ class WikiPipeline(ModelPipeline):
         return [claim]
 
     def fetch_evidence(self, word: str, fallback_word: str = None, only_intro: bool = True) -> list[tuple[str, list[str], list[str]]]:
-        texts = self.wiki.get_pages(word, fallback_word, self.word_lang, only_intro=only_intro)
+        texts, wiki_word = self.wiki.get_pages(word, fallback_word, self.word_lang, only_intro=only_intro)
         #texts = self.wiki.get_texts(word, k=20, only_intro=only_intro)  # TODO line numbers
-        return [(page, [str(i) for i in range(len(lines))], lines) for page, lines in texts]
+        return [(page, [str(i) for i in range(len(lines))], lines) for page, lines in texts], wiki_word
 
     def select_evidence(self, claim: str, evidence_list: list[tuple[str, list[str], list[str]]], top_k=3,
                         max_evidence_count=3) -> list[tuple[str, str, str]]:

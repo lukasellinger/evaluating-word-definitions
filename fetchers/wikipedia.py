@@ -4,8 +4,8 @@ from typing import List, Tuple, Dict
 import requests
 from requests import Response
 
-from utils.spacy_utils import split_into_sentences
-from utils.utils import generate_case_combinations
+from general_utils.spacy_utils import split_into_sentences
+from general_utils.utils import generate_case_combinations
 
 
 class Wikipedia:
@@ -170,7 +170,7 @@ class Wikipedia:
             wiki_texts = self.get_text_from_title(similar_titles, only_intro=only_intro)
             pages.update(wiki_texts)
 
-        return list(pages.items())
+        return list(pages.items()), word
 
     def translate_word(self, word: str, fallback_word=None, word_lang: str = 'de') -> str:
         if interlang_word := self.get_interlanguage_title(word, source_lang=word_lang):

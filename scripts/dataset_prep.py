@@ -1,5 +1,4 @@
 """Script for creating the dataset."""
-
 from typing import Tuple
 
 from datasets import Dataset
