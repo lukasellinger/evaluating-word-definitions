@@ -83,7 +83,7 @@ class Wikipedia:
 
         return list(self._fetch_batch(params, site=site).items())
 
-    def _fetch_batch(self, params: Dict, site: str, sentence_limit: int = 1000) -> Dict:
+    def _fetch_batch(self, params: Dict, site: str, sentence_limit: int = 250) -> Dict:
         texts = {}  # dict to get rid of possible duplicates
         while True:
             response = self._get_response(params, site=site)
@@ -109,19 +109,26 @@ class Wikipedia:
         return texts
 
     def get_text_from_title(self, page_titles: List[str], site: str = 'wikipedia', only_intro: bool = True) -> Dict:
-        params = {
-            "action": "query",
-            "format": "json",
-            "prop": "extracts",
-            "explaintext": True,
-            "titles": "|".join(page_titles),
-            "redirects": True  # Follow redirects, e.g. Light bulb to Electric light
-        }
+        def process():
+            params = {
+                "action": "query",
+                "format": "json",
+                "prop": "extracts",
+                "explaintext": True,
+                "titles": "|".join(batch_pages),
+                "redirects": True  # Follow redirects, e.g. Light bulb to Electric light
+            }
 
-        if only_intro:
-            params['exintro'] = "true"
+            if only_intro:
+                params['exintro'] = "true"
 
-        return self._fetch_batch(params, site)
+            return self._fetch_batch(params, site)
+
+        results = {}
+        for i in range(0, len(page_titles), 50):  # wikipedia api supports a maximum of 50
+            batch_pages = page_titles[i:i + 50]
+            results.update(process())
+        return results
 
     def find_similar_titles(self, search_term, k: int = 1000) -> List[str]:
         params = {
@@ -189,8 +196,4 @@ class Wikipedia:
 
 if __name__ == "__main__":
     wiki = Wikipedia()
-    print(wiki.get_pages('Datenkompression', 'data compression', word_lang='de', only_intro=True))
-    #print(wiki.get_pages('electric light', only_intro=True))
-    #print(wiki.get_text_from_title('vacuum', only_intro=True))
-    #print(wiki.get_texts("Vladimir Putin", k=20, only_intro=False))
-    #print('hi')
+    print(wiki.get_pages('a', 'data a', word_lang='de', only_intro=True))

@@ -9,7 +9,7 @@ from typing import Tuple, List
 import torch
 from torch.utils.data import Dataset
 
-from utils.utils import convert_to_unicode
+from general_utils.utils import convert_to_unicode
 
 
 class Fact(Enum):

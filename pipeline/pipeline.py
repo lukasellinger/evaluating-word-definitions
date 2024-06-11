@@ -7,11 +7,11 @@ from torch.nn.functional import cosine_similarity
 
 from database.db_retriever import FeverDocDB
 from dataset.def_dataset import Fact, process_sentence, process_lines, split_text
-from fact_extractor import FactExtractor
+from general_utils.fact_extractor import FactExtractor
 from fetchers.wikipedia import Wikipedia
 from models.claim_verification_model import ClaimVerificationModel
 from models.evidence_selection_model import EvidenceSelectionModel
-from utils.utils import rank_docs
+from general_utils.utils import rank_docs
 
 
 class Pipeline:

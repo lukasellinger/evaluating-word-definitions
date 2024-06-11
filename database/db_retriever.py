@@ -12,6 +12,7 @@ import sqlite3
 
 from config import PROJECT_DIR
 
+
 class FeverDocDB:
     """Sqlite backed document storage."""
 

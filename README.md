@@ -15,5 +15,14 @@ cp config.py.template config.py
 nano config.py
 ```
 
+3. Repository for Discourse Simplification
+```
+cd ..
+git clone git@github.com:Lambda-3/DiscourseSimplification.git
+cd DiscourseSimplification
+git checkout 5e7ac12
+mvn clean install -DskipTests
+```
+
 ## Authors and acknowledgment
 Lukas Ellinger (lukas.ellinger@tum.de)
