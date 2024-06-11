@@ -62,14 +62,14 @@ group by uq.id, docs.document_id
 
 dataset_query = """
 select uq.*, GROUP_CONCAT(af.fact, '--;--') as atomic_facts
-from german_dataset as uq
-    left join atomic_facts_german af on af.claim_id = uq.id
+from german_dpr_dataset as uq
+    left join atomic_facts_german_dpr af on af.claim_id = uq.id
 where 100=100
 group by uq.id
 """
 
 dataset = Dataset.from_sql(dataset_query, con=DB_URL)
-dataset.push_to_hub("lukasellinger/german_claim_verification_atomic_jan-v1", private=True, token=HF_WRITE_TOKEN)
+dataset.push_to_hub("lukasellinger/german_dpr_claim_verification_dissim-v1", private=True, token=HF_WRITE_TOKEN)
 # train_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='train'), con=DB_URL)
 # dev_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='dev'), con=DB_URL)
 # test_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='test'), con=DB_URL)

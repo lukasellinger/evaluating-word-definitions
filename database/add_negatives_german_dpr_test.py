@@ -11,7 +11,7 @@ INSERT OR IGNORE INTO german_dpr_dataset (word, label, claim)
 VALUES (?, ?, ?)
 """
 
-dataset = Dataset.from_sql("SELECT word, claim FROM german_dpr_dataset WHERE 1=1", con=DB_URL)
+dataset = Dataset.from_sql("SELECT word, claim FROM german_dpr_dataset WHERE 35=35", con=DB_URL)
 words = list(set([entry['word'] for entry in dataset]))
 
 with FeverDocDB() as db:

@@ -189,8 +189,8 @@ class Wikipedia:
 
 if __name__ == "__main__":
     wiki = Wikipedia()
-    #print(wiki.get_pages('Hitler', 'Friendship game', word_lang='de', only_intro=True))
+    print(wiki.get_pages('Datenkompression', 'data compression', word_lang='de', only_intro=True))
     #print(wiki.get_pages('electric light', only_intro=True))
     #print(wiki.get_text_from_title('vacuum', only_intro=True))
-    print(wiki.get_texts("Vladimir Putin", k=20, only_intro=False))
-    print('hi')
+    #print(wiki.get_texts("Vladimir Putin", k=20, only_intro=False))
+    #print('hi')

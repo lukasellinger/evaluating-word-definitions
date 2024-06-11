@@ -7,6 +7,15 @@ nlp = spacy.load("en_core_web_lg")
 german_nlp = spacy.load("de_core_news_lg")
 
 
+def get_doc(txt: str, lang: str = 'en'):
+    if lang == 'en':
+        return nlp(txt)
+    elif lang == 'de':
+        return german_nlp(txt)
+    else:
+        raise ValueError(f'Language {lang} not supported.')
+
+
 def recognize_definition(sentence: str, simple=False) -> bool:
     """Check whether sentence is a definition."""
     definitions_keywords = [
@@ -67,14 +76,14 @@ def words_to_lemmas(words: List[str]) -> List[str]:
     return keyword_lemmas
 
 
-def check_person(sentence: str) -> bool:
+def check_person(sentence: str, lang: str = 'en') -> bool:
     """Check if first token belongs to a person."""
-    return get_ent_type(sentence) == 'PERSON'
+    return get_ent_type(sentence, lang) == 'PERSON'
 
 
-def get_ent_type(sentence: str) -> str:
+def get_ent_type(sentence: str, lang: str = 'en') -> str:
     """Get named entity type of first token."""
-    doc = nlp(sentence)
+    doc = get_doc(sentence, lang)
 
     first_token = doc[0]
     if first_token.dep_ == 'compound':
@@ -83,23 +92,24 @@ def get_ent_type(sentence: str) -> str:
     return first_token.ent_type_
 
 
-def split_into_sentences(text: str) -> List[str]:
+def split_into_sentences(txt: str, lang: str = 'en') -> List[str]:
     """Split a text into sentences."""
-    doc = nlp(text)
+    doc = get_doc(txt, lang)
     return [sent.text.strip() for sent in doc.sents]
 
 
-def get_first_entity(text: str) -> str:
+def get_first_entity(txt: str, lang: str = 'en') -> str:
     """Takes a text and return the first entity in the text."""
-    doc = nlp(text)
+    doc = get_doc(txt, lang)
     first_entity = doc.ents[0].text if doc.ents else None
     return first_entity
 
 
-def get_first_compound_or_word(text: str) -> str:
+def get_first_compound_or_word(txt: str, lang: str = 'en') -> str:
     """Take a text and return the first compound word or the first standalone word in the text.
     """
-    doc = nlp(text)
+    doc = get_doc(txt, lang)
+
     compound = []
     for token in doc:
         if token.dep_ == "compound":
@@ -112,12 +122,7 @@ def get_first_compound_or_word(text: str) -> str:
 
 def get_words_before_root(sentence: str, lang='en') -> str:
     """Get all words before the root of the sentence"""
-    if lang == 'en':
-        doc = nlp(sentence)
-    elif lang == 'ger':
-        doc = german_nlp(sentence)
-    else:
-        raise ValueError(f'Language {lang} not supported.')
+    doc = get_doc(sentence, lang)
 
     root_token = 'ROOT'
     for token in doc:
@@ -141,15 +146,23 @@ def to_nltk_tree(node):
 
 
 def remove_starting_article(txt: str, lang='en'):
-    if lang == 'en':
-        doc = nlp(txt)
-    elif lang == 'ger':
-        doc = german_nlp(txt)
-    else:
-        raise ValueError(f'Language {lang} not supported.')
+    doc = get_doc(txt, lang)
 
     first_token = doc[0]
     if first_token.pos_ == 'DET':
         txt = txt[len(first_token) + 1:]
         return txt
     return txt
+
+
+def is_single_word(txt: str, lang='en'):
+    doc = get_doc(txt, lang)
+
+    if len(doc) == 1:
+        return True
+
+    # Check if the entire phrase is a named entity
+    if any(ent.text == txt for ent in doc.ents):
+        return True
+
+    return False

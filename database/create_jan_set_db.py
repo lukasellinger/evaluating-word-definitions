@@ -4,7 +4,7 @@ from tqdm import tqdm
 from config import PROJECT_DIR
 from database.db_retriever import FeverDocDB
 from reader import JSONReader
-from utils.spacy_utils import german_nlp
+from utils.spacy_utils import is_single_word
 from utils.utils import remove_non_alphabetic_start_end
 
 CREATE_GER_DATASET = """
@@ -46,6 +46,9 @@ with FeverDocDB() as db:
 
         word = prompt_input.get('title')
         word = remove_non_alphabetic_start_end(word)
+
+        if not is_single_word(word, lang='de'):  # we only want single words
+            continue
 
         label = "SUPPORTED"
         db.write(INSERT_ENTRY, (word, label, claim, context_sentence))

@@ -4,7 +4,7 @@ from datasets import load_dataset, concatenate_datasets
 from tqdm import tqdm
 
 from database.db_retriever import FeverDocDB
-from utils.spacy_utils import remove_starting_article
+from utils.spacy_utils import remove_starting_article, is_single_word
 
 CREATE_GERMAN_DATASET = """
 CREATE TABLE IF NOT EXISTS german_dpr_dataset (
@@ -39,8 +39,8 @@ def create_fact(question_sent, answer_sent):
     for key, value in QUESTION_CONVERSION.items():
         if question_sent.startswith(key):
             entity = question_sent[len(key) + 1: -1]
-            entity = remove_starting_article(entity, lang='ger')  # remove leading article
-            if len(entity.split(' ')) > 2:  # right now we do not want entities longer than 2 words
+            entity = remove_starting_article(entity, lang='de')  # remove leading article
+            if not is_single_word(entity, lang='de'):  # we only want single words
                 continue
 
             fact_sent = value.format(entity, answer_sent).strip()

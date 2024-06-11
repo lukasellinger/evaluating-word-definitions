@@ -48,3 +48,20 @@ class JSONReader(Reader):
     def process(self, file):
         """Read file as json object."""
         return json.load(file)
+
+
+class LineReader(Reader):
+    """Line reader for files."""
+
+    def process(self, file):
+        """Read each line as an entry in a list."""
+        data = []
+        for line in file.readlines():
+            data.append(line)
+
+        return data
+
+    def _write(self, file, lines):
+        for line in lines:
+            file.write(line)
+            file.write('\n')
