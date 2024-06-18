@@ -8,8 +8,9 @@ from general_utils.translation import Translator
 
 
 class WordReplacer:
-    def __init__(self, use_antonyms: bool = True):
+    def __init__(self, use_antonyms: bool = True, only_english: bool = False):
         self.use_antonyms = use_antonyms
+        self.only_english = only_english
         self.translator_en_de = Translator(source_lang='en', dest_lang='de')
         self.translator_de_en = Translator(source_lang='de', dest_lang='en')
 
@@ -17,12 +18,32 @@ class WordReplacer:
         if not use_antonyms:
             use_antonyms = self.use_antonyms
 
+        if self.only_english:
+            return self.get_english_replacement(word, word_set, use_antonyms)
+        else:
+            return self.get_german_replacement(word, word_set, use_antonyms)
+
+    def get_german_replacement(self, word, word_set, use_antonyms: bool = None):
         if use_antonyms:
             antonym, origin = self._get_antonym(word)
             if not antonym:
                 antonym, origin = self._translate_and_get_antonym(word)
                 if not antonym:
                     antonym, origin = self._get_random_word(word, word_set)
+        else:
+            antonym, origin = self._get_random_word(word, word_set)
+
+        assert antonym is not None
+        return antonym, origin
+
+    def get_english_replacement(self, word, word_set, use_antonyms: bool = None):
+        if not use_antonyms:
+            use_antonyms = self.use_antonyms
+
+        if use_antonyms:
+            antonym, origin = self._get_english_antonym(word)
+            if not antonym:
+                antonym, origin = self._get_random_word(word, word_set)
         else:
             antonym, origin = self._get_random_word(word, word_set)
 
@@ -36,7 +57,10 @@ class WordReplacer:
 
     def _translate_and_get_antonym(self, word: str) -> tuple[str, str] | tuple[None, None]:
         translated_word = self.translator_de_en.get_translation(word)
-        antonyms = self.get_antonyms(translated_word)
+        return self._get_english_antonym(translated_word)
+
+    def _get_english_antonym(self, word: str):
+        antonyms = self.get_antonyms(word)
         translated_antonyms = [self.translator_en_de.get_translation(antonym) for antonym in
                                antonyms]
         valid_antonyms = [antonym for antonym in translated_antonyms if

@@ -9,7 +9,7 @@ from typing import Tuple, List
 import torch
 from torch.utils.data import Dataset
 
-from general_utils.utils import convert_to_unicode
+from general_utils.utils import convert_to_unicode, process_sentence
 
 
 class Fact(Enum):
@@ -28,24 +28,6 @@ class Fact(Enum):
             #Fact.NOT_ENOUGH_INFO: -1
         }
         return factuality[self]
-
-
-def process_sentence(sentence):
-    """Converts characters to their original representation in a sentence."""
-    sentence = convert_to_unicode(sentence)
-    sentence = re.sub(" -LSB-.*?-RSB-", " ", sentence)
-    sentence = re.sub(" -LRB- -RRB- ", " ", sentence)
-    sentence = re.sub("-LRB-", "(", sentence)
-    sentence = re.sub("-RRB-", ")", sentence)
-    sentence = re.sub("-COLON-", ":", sentence)
-    sentence = re.sub("_", " ", sentence)
-    sentence = re.sub(r"\( *\,? *\)", "", sentence)
-    sentence = re.sub(r"\( *[;,]", "(", sentence)
-    sentence = re.sub("--", "-", sentence)
-    sentence = re.sub("``", '"', sentence)
-    sentence = re.sub("''", '"', sentence)
-    return sentence
-
 
 def process_lines(lines):
     """Removes empty lines."""

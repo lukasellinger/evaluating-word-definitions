@@ -1,18 +1,13 @@
 """General utils using spacy for processing."""
+import re
 from typing import List
 
 import spacy
 
+from general_utils.utils import process_sentence
+
 nlp = spacy.load("en_core_web_lg")
 german_nlp = spacy.load("de_core_news_lg")
-
-QUESTION_CONVERSION = {"Was ist": "{} ist {}.",
-                       "Was bezeichnet man als": "Als {} bezeichnet man {}.",
-                       "Was bezeichnet": "{} bezeichnet {}.",
-                       "Was bedeutet": "{} bedeuet {}.",
-                       "Was macht": "{} macht {}.",
-                       "Was kennzeichnet": "{} kennzeichnet {}."
-                       }
 
 DEFINITION_KEYWORDS = [
     "be",
@@ -132,13 +127,30 @@ def get_words_before_root(sentence: str, lang='en') -> str:
     """Get all words before the root of the sentence"""
     doc = get_doc(sentence, lang)
 
-    root_token = 'ROOT'
+    tokens = []
     for token in doc:
         if token.dep_ == "ROOT":
-            root_token = ' ' + str(token) + ' '
             break
+        else:
+            tokens.append(token.norm_)
+    return process_sentence(' '.join(tokens)).strip()
 
-    return sentence.split(root_token)[0].strip()
+
+def get_words_after_root(sentence: str, lang='en') -> str:
+    """Get all words after the root of the sentence"""
+    doc = get_doc(sentence, lang)
+
+    tokens = []
+    root_occured = False  # sometimes spacy sentences has multiple roots. we take the first one
+    for token in doc:
+        if token.dep_ == "ROOT":
+            root_occured = True
+            continue
+        if root_occured:
+            tokens.append(token.norm_)
+
+    return process_sentence(' '.join(tokens)).strip()
+
 
 def tok_format(tok):
     """Get original verbatim text of tok."""
@@ -176,8 +188,16 @@ def is_single_word(txt: str, lang='en'):
     return False
 
 
-def create_fact(question_sent, answer_sent):
+def create_german_fact(question_sent, answer_sent):
     """Create a fact sentence out of the question and answer."""
+    QUESTION_CONVERSION = {"Was ist": "{} ist {}.",
+                           "Was bezeichnet man als": "Als {} bezeichnet man {}.",
+                           "Was bezeichnet": "{} bezeichnet {}.",
+                           "Was bedeutet": "{} bedeuet {}.",
+                           "Was macht": "{} macht {}.",
+                           "Was kennzeichnet": "{} kennzeichnet {}."
+                           }
+
     for key, value in QUESTION_CONVERSION.items():
         if question_sent.startswith(key):
             entity = question_sent[len(key) + 1: -1]
@@ -190,11 +210,45 @@ def create_fact(question_sent, answer_sent):
             return fact_sent, entity
 
 
-def is_def_question(question_sent):
+def create_english_fact(question_sent, answer_sent):
+    """Checks whether the question asks for a definition of a word and creates a fact out of it."""
+    QUESTION_CONVERSION = {
+        r"What is (.*)": "{} is {}.",
+        r"What is referred to as (.*)": "{} is referred to as {}.",
+        r"What refers to (.*)": "{} refers to {}.",
+        r"What means (.*)": "{} means {}.",
+        r"What does (.*) mean\?": "{} means {}.",
+        r"What does (.*)": "{} does {}.",
+        r"What characterizes (.*)": "{} characterizes {}."
+    }
+
+    for pattern, value in QUESTION_CONVERSION.items():
+        match = re.search(pattern, question_sent)
+
+        if match:
+            entity = match.group(1)
+            entity = remove_starting_article(entity, lang='en')  # remove leading article
+            if not is_single_word(entity, lang='en'):  # we only want single words
+                continue
+
+            fact_sent = value.format(entity, answer_sent).strip()
+            fact_sent = fact_sent[0].upper() + fact_sent[1:]
+            return fact_sent, entity
+
+
+def is_german_def_question(question_sent):
     """Checks whether the entry has a question which asks for a definition of a word."""
+    QUESTION_CONVERSION = {"Was ist": "{} ist {}.",
+                           "Was bezeichnet man als": "Als {} bezeichnet man {}.",
+                           "Was bezeichnet": "{} bezeichnet {}.",
+                           "Was bedeutet": "{} bedeuet {}.",
+                           "Was macht": "{} macht {}.",
+                           "Was kennzeichnet": "{} kennzeichnet {}."
+                           }
+
     if question_sent.startswith(tuple(QUESTION_CONVERSION.keys())):
         if question_sent.startswith('Was ist'):
-            question_tokens = nlp(question_sent)
+            question_tokens = german_nlp(question_sent)
 
             word = question_tokens[2]
             if word.pos_ == 'DET':

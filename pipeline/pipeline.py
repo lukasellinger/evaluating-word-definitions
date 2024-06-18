@@ -21,70 +21,7 @@ class Pipeline:
         self.word_lang = word_lang
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-
     def verify(self, word: str, claim: str, fallback_word: str = None, split_facts: bool = True, only_intro: bool = True, atomic_claims = None) -> Dict:
-        """
-        Verify a claim related to a word.
-        :param word: Word associated to the claim.
-        :param claim: Claim to be verified.
-        :return: dict containing factuality, atomic claim factualities and selected evidences.
-        """
-        output = {'factuality': -1,
-                  'factualities': [],
-                  'evidences': []}
-        ev_sents = self.fetch_evidence(word, fallback_word, only_intro)
-
-        if ev_sents:
-            selected_evidences = self.select_evidence(claim, ev_sents)   # we need to know the line and the page the info was taken from
-            selected_ev_sents = [evidence[2] for evidence in selected_evidences]
-
-            if not atomic_claims:  # in order to use already computed atomic claims
-                atomic_claims = self.process_claim(claim, split_facts=split_facts)
-
-            total_factuality = 0
-            factualities = []
-            for atomic_claim in atomic_claims:
-                atomic_claim = f'{fallback_word}: {atomic_claim}'
-                factuality = self.verify_claim(atomic_claim, selected_ev_sents)
-                total_factuality += 1 if factuality == Fact.SUPPORTED else 0
-                factualities.append((atomic_claim, factuality))
-
-            output['factuality'] = total_factuality / len(atomic_claims)
-            output['factualities'] = factualities
-            output['evidences'] = selected_evidences
-        return output
-
-    def verify1(self, word: str, claim: str, fallback_word: str = None, split_facts: bool = True, only_intro: bool = True, atomic_claims = None) -> Dict:
-        """
-        Verify a claim related to a word.
-        :param word: Word associated to the claim.
-        :param claim: Claim to be verified.
-        :return: dict containing factuality, atomic claim factualities and selected evidences.
-        """
-        output = {'factuality': -1,
-                  'factualities': [],
-                  'evidences': []}
-        ev_sents, wiki_word = self.fetch_evidence(word, fallback_word, only_intro)
-
-        if ev_sents:
-            if not atomic_claims:  # in order to use already computed atomic claims
-                atomic_claims = self.process_claim(claim, split_facts=split_facts)
-
-            total_factuality = 0
-            factualities = []
-            for atomic_claim in atomic_claims:
-                selected_evidences = self.select_evidence(atomic_claim, ev_sents)   # we need to know the line and the page the info was taken from
-                selected_ev_sents = [evidence[2] for evidence in selected_evidences]
-                atomic_claim = f'{wiki_word}: {atomic_claim}'
-                factuality = self.verify_claim(atomic_claim, selected_ev_sents)
-                total_factuality += 1 if factuality == Fact.SUPPORTED else 0
-                factualities.append((atomic_claim, factuality, selected_evidences))
-
-            output['factuality'] = total_factuality / len(atomic_claims)
-            output['factualities'] = factualities
-        return output
-
-    def verify2(self, word: str, claim: str, fallback_word: str = None, split_facts: bool = True, only_intro: bool = True, atomic_claims = None) -> Dict:
         """
         Verify a claim related to a word.
         :param word: Word associated to the claim.
@@ -101,13 +38,16 @@ class Pipeline:
             selected_evidences = self.select_evidence(claim, ev_sents)   # we need to know the line and the page the info was taken from
             selected_ev_sents = [evidence[2] for evidence in selected_evidences]
 
-            if not atomic_claims:  # in order to use already computed atomic claims
+            if atomic_claims:  # in order to use already computed atomic claims
+                atomic_claims = [f'{wiki_word}: {atomic_claim}' for atomic_claim in atomic_claims]
+            else:
                 atomic_claims = self.process_claim(claim, split_facts=split_facts)
+                if split_facts:  # otherwise wiki_word twice
+                    atomic_claims = [f'{wiki_word}: {atomic_claim}' for atomic_claim in atomic_claims]
 
             total_factuality = 0
             factualities = []
             for atomic_claim in atomic_claims:
-                atomic_claim = f'{wiki_word}: {atomic_claim}'
                 factuality = self.verify_claim(atomic_claim, selected_ev_sents)
                 total_factuality += 1 if factuality == Fact.SUPPORTED else 0
                 factualities.append((atomic_claim, factuality))
@@ -224,7 +164,7 @@ class TestPipeline(ModelPipeline):
             lines = db.get_doc_lines(word)
 
         if not lines:
-            return []
+            return [], fallback_word
 
         lines = process_lines(lines)
         processed_lines = []

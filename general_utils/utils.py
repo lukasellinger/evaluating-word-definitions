@@ -153,7 +153,7 @@ def generate_case_combinations(txt: str) -> List[str]:
     return combinations
 
 
-def sentence_simplfication(sentences: List[str]):
+def sentence_simplification(sentences: List[str]):
     discourse_simplification = PROJECT_DIR.joinpath('../DiscourseSimplification')
     LineReader().write(discourse_simplification.joinpath('input.txt'), sentences, mode='w')
     command = ["mvn", "-f", discourse_simplification.joinpath("pom.xml"), "clean", "compile", "exec:java"]
@@ -163,3 +163,47 @@ def sentence_simplfication(sentences: List[str]):
                 'splits': [split.get('text') for split in entry.get('elementMap').values()]}
                for entry in outputs]
     return outputs
+
+
+def find_substring_in_list(lst, substring):
+    for index, string in enumerate(lst):
+        if substring in string:
+            return index
+    return -1
+
+
+def process_sentence(sentence):
+    """Converts characters to their original representation in a sentence."""
+    sentence = convert_to_unicode(sentence)
+    sentence = re.sub(" -LSB-.*?-RSB-", " ", sentence)
+    sentence = re.sub(" -LRB- -RRB- ", " ", sentence)
+    sentence = re.sub("-LRB-\s*", "(", sentence)
+    sentence = re.sub("\s*-RRB-", ")", sentence)
+    sentence = re.sub(r"\(\s*", "(", sentence)
+    sentence = re.sub(r"\s*\)", ")", sentence)
+    sentence = re.sub("\s*-COLON-\s*", ":", sentence)
+    sentence = re.sub("_", " ", sentence)
+    sentence = re.sub(r"\( *\,? *\)", "", sentence)
+    sentence = re.sub(r"\( *[;,]", "(", sentence)
+    sentence = re.sub("--", "-", sentence)
+    sentence = re.sub(r"``\s*", '"', sentence)
+    sentence = re.sub(r"\s*''", '"', sentence)
+    sentence = re.sub(r" \.", '.', sentence)
+    sentence = re.sub(r" ,", ',', sentence)
+    sentence = re.sub(r" ;", ';', sentence)
+    sentence = re.sub(r" :", ':', sentence)
+    return sentence
+
+
+a = """
+with unique_claims as (
+select distinct dd.id, dd.short_claim as claim, dd.label, dd.evidence_wiki_url, dd.set_type
+from def_dataset dd)
+select uq.id, uq., uq.label, docs.document_id, docs.text,
+       docs.lines, se.evidence_lines as evidence_lines, GROUP_CONCAT(af.fact, '--;--') as atomic_facts
+from unique_claims as uq
+    join selected_evidence se on uq.id = se.claim_id
+    join documents docs on docs.document_id = uq.evidence_wiki_url
+    left join atomic_facts_fever_short_dissim af on af.claim_id = uq.id
+where uq.set_type = 'dev' --'{set_type}' and 10=10
+group by uq.id, docs.document_id"""

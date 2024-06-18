@@ -46,7 +46,7 @@ def main(table, fact_table, explanation_table):
                             LEFT JOIN {fact_table} af on af.claim_id = dd.id
                             WHERE af.id is NULL""")
 
-    extractor = FactExtractor(hf_token=HF_READ_TOKENS[1])
+    extractor = FactExtractor(hf_token=HF_READ_TOKENS[0])
     translator = Translator(source_lang='de', dest_lang='en')
 
     with FeverDocDB() as db:
@@ -68,12 +68,12 @@ def main(table, fact_table, explanation_table):
                 english_word = translator.get_translation(word)
                 english_claim = translator.get_translation(claim)
 
-            english_facts = extractor.get_atomic_facts(translation)
-
             db.write(UPDATE_TRANSLATION, (english_claim, english_word, claim_id))
 
             if len(claim) <= 30:  # these are not split into atomic facts
                 continue
+
+            english_facts = extractor.get_atomic_facts(f'{english_word}: {english_claim}')
 
             for fact in english_facts.get('facts'):
                 db.write(INSERT_FACT, (claim_id, fact))
@@ -84,6 +84,6 @@ def main(table, fact_table, explanation_table):
 
 if __name__ == "__main__":
     table = 'german_dataset'
-    fact_table = 'atomic_facts_german'
-    explanation_table = 'atomic_facts_german_explanation'
+    fact_table = 'atomic_facts_german_mixtral'
+    explanation_table = 'atomic_facts_german_explanation_mixtral'
     main(table, fact_table, explanation_table)

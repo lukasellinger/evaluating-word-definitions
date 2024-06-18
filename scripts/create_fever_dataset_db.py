@@ -5,7 +5,7 @@ from tqdm import tqdm
 from config import PROJECT_DIR
 from database.db_retriever import FeverDocDB
 from general_utils.reader import JSONLineReader
-from general_utils.spacy_utils import get_words_before_root
+from general_utils.spacy_utils import get_words_before_root, get_words_after_root
 from general_utils.utils import title_to_db_page
 
 CREATE_DEF_DATASET = """
@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS def_dataset (
     verifiable VARCHAR,
     label VARCHAR,
     claim TEXT,
+    short_claim TEXT,
     evidence_annotation_id INTEGER,
     evidence_id INTEGER,
     evidence_wiki_url VARCHAR,
@@ -24,9 +25,9 @@ CREATE TABLE IF NOT EXISTS def_dataset (
 """
 
 INSERT_ENTRY = """
-INSERT INTO def_dataset (id, verifiable, label, claim, evidence_annotation_id, evidence_id,
-                         evidence_wiki_url, evidence_sentence_id, set_type)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO def_dataset (id, verifiable, label, claim, short_claim, evidence_annotation_id, 
+                         evidence_id, evidence_wiki_url, evidence_sentence_id, set_type)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 EXIST_WIKI_PAGE = """
@@ -55,5 +56,6 @@ for set_type, path in zip(['train', 'dev', 'test'],
                 result = db.read(EXIST_WIKI_PAGE, (page,))
                 document_id = page if result else None
                 entry['evidence_wiki_url'] = document_id if document_id else None
+                entry['short_claim'] = get_words_after_root(claim)
             entry['set_type'] = set_type
             db.write(INSERT_ENTRY, tuple(entry.values()))

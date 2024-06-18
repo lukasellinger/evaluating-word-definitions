@@ -3,8 +3,7 @@ from collections import defaultdict
 from tqdm import tqdm
 
 from database.db_retriever import FeverDocDB
-from dataset.def_dataset import process_sentence
-from general_utils.utils import sentence_simplfication
+from general_utils.utils import sentence_simplification, process_sentence
 
 
 def main(table, fact_table, claim_col):
@@ -22,7 +21,7 @@ def main(table, fact_table, claim_col):
     """
 
     GET_CLAIM_ID = f"""
-    SELECT id
+    SELECT DISTINCT id
     FROM {table}
     WHERE {claim_col} = ?;
     """
@@ -31,7 +30,7 @@ def main(table, fact_table, claim_col):
         db.write(CREATE_ATOMIC_FACTS)
         claims = [entry[0] for entry in db.read(f"""SELECT DISTINCT {claim_col} FROM {table}""")]
 
-    output = sentence_simplfication(claims)
+    output = sentence_simplification(claims)
     stats = defaultdict(int)
     with FeverDocDB() as db:
         for claim in tqdm(output):
@@ -42,6 +41,7 @@ def main(table, fact_table, claim_col):
             splits = claim.get('splits')
             stats[len(splits)] += len(claim_ids)
             for split in splits:
+                split = process_sentence(split)
                 for claim_id in claim_ids:
                     db.write(INSERT_FACT, (claim_id, split))
     return stats
@@ -49,7 +49,7 @@ def main(table, fact_table, claim_col):
 
 if __name__ == "__main__":
     table = 'def_dataset'
-    fact_table = 'fever_atomic_facts_dissim'
-    claim_col = 'claim'
+    fact_table = 'atomic_facts_fever_short_dissim'
+    claim_col = 'short_claim'
     stats = main(table, fact_table, claim_col)
     print(stats)
