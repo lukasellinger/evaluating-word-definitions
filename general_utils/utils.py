@@ -211,3 +211,8 @@ def process_sentence(sentence):
     sentence = re.sub(r" :", ':', sentence)
     return sentence
 
+
+def split_into_passages(text, passage_length=256):
+    words = text.split()
+    passages = [' '.join(words[i:i + passage_length]) for i in range(0, len(words), passage_length)]
+    return passages

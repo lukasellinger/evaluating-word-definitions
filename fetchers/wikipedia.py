@@ -5,7 +5,7 @@ import requests
 from requests import Response
 
 from general_utils.spacy_utils import split_into_sentences
-from general_utils.utils import generate_case_combinations
+from general_utils.utils import generate_case_combinations, split_into_passages
 
 
 class Wikipedia:
@@ -60,7 +60,7 @@ class Wikipedia:
 
         return [entry.get('pageid') for entry in data.get('query', {}).get('search', [])]
 
-    def get_text_from_page_ids(self, page_ids: List[int], only_intro: bool = True, site: str = 'wikipedia') -> List[Tuple[str, List[str]]]:
+    def get_text_from_page_ids(self, page_ids: List[int], only_intro: bool = True, site: str = 'wikipedia', split_text=False) -> List[Tuple[str, List[str]]]:
         """
         Get the summary of the pages of page_ids on wikipedia.
         :param page_ids: Page_ids to get the summaries of.
@@ -81,9 +81,9 @@ class Wikipedia:
         if only_intro:
             params['exintro'] = "true"
 
-        return list(self._fetch_batch(params, site=site).items())
+        return list(self._fetch_batch(params, site=site, split_text=split_text).items())
 
-    def _fetch_batch(self, params: Dict, site: str, sentence_limit: int = 250) -> Dict:
+    def _fetch_batch(self, params: Dict, site: str, sentence_limit: int = 250, split_text=False) -> Dict:
         texts = {}  # dict to get rid of possible duplicates
         while True:
             response = self._get_response(params, site=site)
@@ -100,15 +100,19 @@ class Wikipedia:
                     text = re.sub(r"\.{2,}", ". ", text)
                     text = re.sub(r"^[. ]+", "", text)
 
-                    sentences = split_into_sentences(text)
-                    texts[f'{title} ({site})'] = sentences[:sentence_limit]  # TODO line numbers
+                    if split_text:
+                        passages = split_into_passages(text)
+                        texts = {f'{title} ({site}) {i}': passage for i, passage in enumerate(passages)}  # TODO line numbers
+                    else:
+                        sentences = split_into_sentences(text)
+                        texts[f'{title} ({site})'] = sentences[:sentence_limit]  # TODO line numbers
             if continue_batch := data.get('continue'):
                 params.update(continue_batch)
             else:
                 break
         return texts
 
-    def get_text_from_title(self, page_titles: List[str], site: str = 'wikipedia', only_intro: bool = True) -> Dict:
+    def get_text_from_title(self, page_titles: List[str], site: str = 'wikipedia', only_intro: bool = True, split_text=False) -> Dict:
         def process():
             params = {
                 "action": "query",
@@ -122,7 +126,7 @@ class Wikipedia:
             if only_intro:
                 params['exintro'] = "true"
 
-            return self._fetch_batch(params, site)
+            return self._fetch_batch(params, site, split_text=split_text)
 
         results = {}
         for i in range(0, len(page_titles), 50):  # wikipedia api supports a maximum of 50
@@ -148,12 +152,15 @@ class Wikipedia:
 
         return list(set(s.lower() for s in similar_titles))
 
-    def get_pages(self, word: str, fallback_word: str = None, word_lang: str = None, only_intro: bool = True):
+    def get_pages(self, word: str, fallback_word: str = None, word_lang: str = None, only_intro=True, split_text=False):
         word = word.lower()  # lower to find all results
 
         # check word in original language in english dictionary, need full page here
         case_words = generate_case_combinations(word)  # wiktionary titles are case-sensitive
-        dict_text_word = self.get_text_from_title(case_words, only_intro=False, site='wiktionary')
+        dict_text_word = self.get_text_from_title(case_words,
+                                                  only_intro=False,
+                                                  site='wiktionary',
+                                                  split_text=split_text)
         pages = dict_text_word
 
         if word_lang:
@@ -162,12 +169,17 @@ class Wikipedia:
             word = word.lower()
 
         # check translated word in english dictionary, need full page here
-        dict_text_translated = self.get_text_from_title([word], only_intro=False, site='wiktionary')
+        dict_text_translated = self.get_text_from_title([word],
+                                                        only_intro=False,
+                                                        site='wiktionary',
+                                                        split_text=split_text)
         pages.update(dict_text_translated)
 
         # check normal wikipedia
         if similar_titles := self.find_similar_titles(word):
-            wiki_texts = self.get_text_from_title(similar_titles, only_intro=only_intro)
+            wiki_texts = self.get_text_from_title(similar_titles,
+                                                  only_intro=only_intro,
+                                                  split_text=split_text)
             pages.update(wiki_texts)
 
         return list(pages.items()), word
@@ -196,4 +208,6 @@ class Wikipedia:
 
 if __name__ == "__main__":
     wiki = Wikipedia()
-    print(wiki.get_pages('a', 'data a', word_lang='de', only_intro=True))
+    a = wiki.find_similar_titles('Apple')
+    print('hi')
+    #print(wiki.get_pages('a', 'data a', word_lang='de', only_intro=True))
