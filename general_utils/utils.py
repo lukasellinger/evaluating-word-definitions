@@ -193,17 +193,3 @@ def process_sentence(sentence):
     sentence = re.sub(r" ;", ';', sentence)
     sentence = re.sub(r" :", ':', sentence)
     return sentence
-
-
-a = """
-with unique_claims as (
-select distinct dd.id, dd.short_claim as claim, dd.label, dd.evidence_wiki_url, dd.set_type
-from def_dataset dd)
-select uq.id, uq., uq.label, docs.document_id, docs.text,
-       docs.lines, se.evidence_lines as evidence_lines, GROUP_CONCAT(af.fact, '--;--') as atomic_facts
-from unique_claims as uq
-    join selected_evidence se on uq.id = se.claim_id
-    join documents docs on docs.document_id = uq.evidence_wiki_url
-    left join atomic_facts_fever_short_dissim af on af.claim_id = uq.id
-where uq.set_type = 'dev' --'{set_type}' and 10=10
-group by uq.id, docs.document_id"""
