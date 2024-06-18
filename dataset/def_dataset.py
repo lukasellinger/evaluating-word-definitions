@@ -9,7 +9,7 @@ from typing import Tuple, List
 import torch
 from torch.utils.data import Dataset
 
-from general_utils.utils import convert_to_unicode, process_sentence
+from general_utils.utils import convert_to_unicode, process_sentence_wiki
 
 
 class Fact(Enum):
@@ -47,7 +47,7 @@ def split_text(line: str) -> Tuple[str, str]:
 def process_data(data, max_length=2000, k=3):
     """Filters text longer than max_length chars and evidence list larger than k."""
     def filter_entry(entry):
-        text = process_sentence(entry['text'])
+        text = process_sentence_wiki(entry['text'])
         evidence_lines = entry.get('evidence_lines')
         if evidence_lines is None:
             evidence_lines = ""
@@ -145,7 +145,7 @@ class DefinitionDataset(Dataset):
             hypothesis = ""
             lines = process_lines(data['lines'])
             for line in lines.split('\n'):
-                line = process_sentence(line)
+                line = process_sentence_wiki(line)
                 line_number, text = split_text(line)
                 if line_number not in evidence_lines:
                     continue
@@ -193,7 +193,7 @@ class DefinitionDataset(Dataset):
             encoded_sequence = []
             sentence_mask = []
             for line in lines.split('\n'):
-                line = process_sentence(line)
+                line = process_sentence_wiki(line)
                 line_number, text = split_text(line)
                 encoded_line = self.tokenizer.encode(text)[1:-1]
                 encoded_sequence += encoded_line
@@ -247,7 +247,7 @@ class SentenceContextDataset(Dataset):
         """Cleans the lines and returns them in a list of tuples (line_number, text)."""
         processed_lines = []
         for line in lines.split('\n'):
-            processed_line = process_sentence(line)
+            processed_line = process_sentence_wiki(line)
             line_number, text = split_text(processed_line)
             processed_lines.append((line_number, text))
         return processed_lines

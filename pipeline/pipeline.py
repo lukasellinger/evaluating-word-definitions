@@ -6,12 +6,12 @@ from transformers import BigBirdModel, AutoTokenizer, AutoModelForSequenceClassi
 from torch.nn.functional import cosine_similarity
 
 from database.db_retriever import FeverDocDB
-from dataset.def_dataset import Fact, process_sentence, process_lines, split_text
+from dataset.def_dataset import Fact, process_lines, split_text
 from general_utils.fact_extractor import FactExtractor
 from fetchers.wikipedia import Wikipedia
 from models.claim_verification_model import ClaimVerificationModel
 from models.evidence_selection_model import EvidenceSelectionModel
-from general_utils.utils import rank_docs
+from general_utils.utils import rank_docs, process_sentence_wiki
 
 
 class Pipeline:
@@ -170,7 +170,7 @@ class TestPipeline(ModelPipeline):
         processed_lines = []
         line_numbers = []
         for line in lines.split('\n'):
-            line = process_sentence(line)
+            line = process_sentence_wiki(line)
             line_number, text = split_text(line)
             processed_lines.append(text)
             line_numbers.append(line_number)

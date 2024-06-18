@@ -172,6 +172,23 @@ def find_substring_in_list(lst, substring):
     return -1
 
 
+def process_sentence_wiki(sentence):
+    """Converts characters to their original representation in a sentence."""
+    sentence = convert_to_unicode(sentence)
+    sentence = re.sub(" -LSB-.*?-RSB-", " ", sentence)
+    sentence = re.sub(" -LRB- -RRB- ", " ", sentence)
+    sentence = re.sub("-LRB-", "(", sentence)
+    sentence = re.sub("-RRB-", ")", sentence)
+    sentence = re.sub("-COLON-", ":", sentence)
+    sentence = re.sub("_", " ", sentence)
+    sentence = re.sub(r"\( *\,? *\)", "", sentence)
+    sentence = re.sub(r"\( *[;,]", "(", sentence)
+    sentence = re.sub("--", "-", sentence)
+    sentence = re.sub("``", '"', sentence)
+    sentence = re.sub("''", '"', sentence)
+    return sentence
+
+
 def process_sentence(sentence):
     """Converts characters to their original representation in a sentence."""
     sentence = convert_to_unicode(sentence)
@@ -193,3 +210,4 @@ def process_sentence(sentence):
     sentence = re.sub(r" ;", ';', sentence)
     sentence = re.sub(r" :", ':', sentence)
     return sentence
+
