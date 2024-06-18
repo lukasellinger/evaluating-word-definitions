@@ -28,7 +28,7 @@ class CLM(LM):
 
     def load_model(self):
         self.model = AutoModelForCausalLM.from_pretrained(self.model_dir)
-        #self.model = convert_model_to_int8_on_gpu(self.model, device='cuda')
+        self.model = convert_model_to_int8_on_gpu(self.model, device='cuda')
         self.tokenizer = PreTrainedTokenizerFast.from_pretrained(self.model_dir)
 
     def _generate(self, prompts, max_sequence_length=2048, max_output_length=128,
