@@ -7,7 +7,7 @@ from torch.nn.functional import cosine_similarity
 
 from database.db_retriever import FeverDocDB
 from dataset.def_dataset import Fact, process_lines, split_text
-from general_utils.fact_extractor import FactExtractor
+from claim_splitters.claim_splitter import MixtralSplitter
 from fetchers.wikipedia import Wikipedia
 from models.claim_verification_model import ClaimVerificationModel
 from models.evidence_selection_model import EvidenceSelectionModel
@@ -210,11 +210,11 @@ class WikiPipeline(ModelPipeline):
         super().__init__(selection_model, selection_model_tokenizer, verification_model,
                          verification_model_tokenizer, word_lang)
         self.wiki = Wikipedia()
-        self.fact_extractor = FactExtractor()
+        self.fact_extractor = MixtralSplitter()
 
     def process_claim(self, claim: str, split_facts: bool = True) -> list[str]:
         if split_facts:
-            facts = self.fact_extractor.get_atomic_facts(claim)
+            facts = self.fact_extractor.get_atomic_claims(claim)
             return facts.get('facts') if facts.get('facts') else [claim]
         return [claim]
 

@@ -1,12 +1,34 @@
 import re
-from typing import Dict
+from abc import ABC, abstractmethod
+from typing import List, Dict
 
 import requests
 
 from config import HF_READ_TOKENS
+from general_utils.utils import sentence_simplification
 
 
-class FactExtractor:
+class ClaimSplitter(ABC):
+
+    @abstractmethod
+    def get_atomic_claims(self, text: str) -> List[str]:
+        pass
+
+    @abstractmethod
+    def get_atomic_claims_batch(self, texts: List[str]) -> List[List[str]]:
+        pass
+
+
+class DisSimSplitter(ClaimSplitter):
+    def get_atomic_claims(self, text: str) -> Dict:
+        output = sentence_simplification([text])
+        return output[0]
+
+    def get_atomic_claims_batch(self, texts: List[str]) -> List[Dict]:
+        return sentence_simplification(texts)
+
+
+class MixtralSplitter(ClaimSplitter):
     API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
     HF_TOKEN = HF_READ_TOKENS[0]
 
@@ -16,8 +38,11 @@ class FactExtractor:
         if hf_token:
             self.HF_TOKEN = hf_token
 
-    def get_atomic_facts(self, txt: str) -> Dict:
-        output = self.query({'inputs': self.get_prompt(txt),
+    def get_atomic_claims_batch(self, texts: List[str]) -> List[Dict]:
+        return [self.get_atomic_claims(text) for text in texts]
+
+    def get_atomic_claims(self, text: str) -> Dict:
+        output = self.query({'inputs': self.get_prompt(text),
                                      'parameters': {'temperature': 0.01, 'return_full_text': False}},
                             token=self.HF_TOKEN)
         if isinstance(output, dict):
@@ -37,7 +62,7 @@ class FactExtractor:
                     facts.append(fact)
                 elif explanation_match:
                     explanation = explanation_match.group(1).strip()
-            return {'facts': facts, 'explanation': explanation}
+            return {'sentence': text, 'splits': facts, 'explanation': explanation}
 
     def query(self, payload, token):
         headers = {"Authorization": "Bearer {token}"}
@@ -89,8 +114,3 @@ class FactExtractor:
         </s> [INST] Please deconstruct the following statement into its main distinct autonomous facts. Refrain from using any external resources. You are not responsible for evaluating the truthfulness or correctness of these facts; your task is only to identify them. Do not be too finegrained: {sentence} [/INST]
         """
         return prompt.format(sentence=txt)
-
-
-if __name__ == "__main__":
-    extractor = FactExtractor()
-    print(extractor.get_atomic_facts('Nudossi is a brand of chocolate cream from the GDR. The answer would be: "Nudossi is a brand of chocolate cream" or simply "DDR chocolate cream".'))

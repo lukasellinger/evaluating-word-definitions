@@ -1,8 +1,8 @@
 from tqdm import tqdm
 
+from claim_splitters.claim_splitter import MixtralSplitter
 from config import HF_READ_TOKENS
 from database.db_retriever import FeverDocDB
-from general_utils.fact_extractor import FactExtractor
 from general_utils.translation import Translator
 
 
@@ -46,7 +46,7 @@ def main(table, fact_table, explanation_table):
                             LEFT JOIN {fact_table} af on af.claim_id = dd.id
                             WHERE af.id is NULL""")
 
-    extractor = FactExtractor(hf_token=HF_READ_TOKENS[0])
+    extractor = MixtralSplitter(hf_token=HF_READ_TOKENS[0])
     translator = Translator(source_lang='de', dest_lang='en')
 
     with FeverDocDB() as db:
@@ -73,9 +73,9 @@ def main(table, fact_table, explanation_table):
             if len(claim) <= 30:  # these are not split into atomic facts
                 continue
 
-            english_facts = extractor.get_atomic_facts(f'{english_word}: {english_claim}')
+            english_facts = extractor.get_atomic_claims(f'{english_word}: {english_claim}')
 
-            for fact in english_facts.get('facts'):
+            for fact in english_facts.get('splits'):
                 db.write(INSERT_FACT, (claim_id, fact))
 
             if explanation := english_facts.get('explanation'):
