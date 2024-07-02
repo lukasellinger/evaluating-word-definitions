@@ -163,7 +163,7 @@ class Wikipedia:
                                                   split_text=split_text)
         pages = dict_text_word
 
-        if word_lang:
+        if word_lang != 'en':
             word = self.translate_word(word, fallback_word, word_lang)
             assert word, "Word could not be translated and no fallback word provided."
             word = word.lower()
@@ -203,11 +203,13 @@ class Wikipedia:
         data = response.json()
         page = next(iter(data.get('query', {}).get('pages', {}).values()))
         if langlinks := page.get('langlinks'):
-            return langlinks[0].get('*')  # there is only one langlink
+            word = langlinks[0].get('*')  # there is only one langlink
+            return word.split(' (')[0]
 
 
 if __name__ == "__main__":
     wiki = Wikipedia()
+    wiki.get_pages('Chaos', 'Chaos', only_intro=True, word_lang='de')
     a = wiki.find_similar_titles('Apple')
     print('hi')
     #print(wiki.get_pages('a', 'data a', word_lang='de', only_intro=True))

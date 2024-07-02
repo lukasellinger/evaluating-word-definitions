@@ -138,15 +138,18 @@ class ModelPipeline(Pipeline):
                  'sentence_mask': torch.tensor(sentence_masks).unsqueeze(0).to(self.device)})
 
     def verify_claim(self, claim: str, sentences: list[str]) -> Fact:
+        sentences.reverse()
         model_inputs = self._build_verification_model_input(claim, sentences)
         with torch.no_grad():
             logits = self.verification_model(**model_inputs)['logits']
             predicted = torch.softmax(logits, dim=-1)
-            # predicted = torch.argmax(predicted, dim=-1).item()
-            predicted[:, 1] += predicted[:, 2]
-            predicted = predicted[:, :2]
+
             predicted = torch.argmax(predicted, dim=-1).item()
-        return Fact(predicted)
+            #predicted[:, 1] += predicted[:, 2]
+            #predicted = predicted[:, :2]
+            #predicted = torch.argmax(predicted, dim=-1).item()
+        return Fact.SUPPORTED if predicted == 0 else Fact.NOT_SUPPORTED
+        #return Fact(predicted)
 
     def _build_verification_model_input(self, claim: str, sentences: list[str]):
         hypothesis = ' '.join(sentences)

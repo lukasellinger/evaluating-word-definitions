@@ -3,6 +3,7 @@
 """Dataset for definitions."""
 
 import re
+from collections import OrderedDict
 from enum import Enum
 from typing import Tuple, List
 
@@ -141,24 +142,28 @@ class DefinitionDataset(Dataset):
         all_input_ids, all_labels, hypothesis_lengths, claim_mask = [], [], [], []
 
         for i, data in enumerate(batch):
-            evidence_lines = set(re.split(r'[;,]',  data['evidence_lines']))
+            evidence_list = re.split(r'[;,]', data['evidence_lines'])
+            evidence_lines = list(OrderedDict.fromkeys(evidence.strip() for evidence in evidence_list))  # keep order
             hypothesis = ""
             lines = process_lines(data['lines'])
+            line_dict = {}
             for line in lines.split('\n'):
                 line = process_sentence_wiki(line)
                 line_number, text = split_text(line)
-                if line_number not in evidence_lines:
-                    continue
-                hypothesis += text
-                hypothesis += ' '
+                if line_number:
+                    line_dict[line_number] = text
+
+            for line_number in evidence_lines:
+                if line_number in line_dict:
+                    hypothesis += line_dict[line_number] + " "
 
             if (facts := data.get('atomic_facts')) is not None:
                 for fact in facts.split('--;--'):
                     claim_mask.append(i)
                     all_input_ids.append(self.tokenizer.encode(hypothesis, fact))
             else:
-                all_input_ids.append(self.tokenizer.encode(hypothesis, data['claim']))
                 claim_mask.append(i)
+                all_input_ids.append(self.tokenizer.encode(hypothesis, data['claim']))
 
             if data['label'] == 'SUPPORTS':
                 all_labels.append(Fact.SUPPORTED.to_factuality())

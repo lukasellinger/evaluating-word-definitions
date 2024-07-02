@@ -12,7 +12,6 @@ from factscore.clm import CLM
 from factscore.npm import NPM
 from factscore.openai_lm import OpenAIModel
 from factscore.retrieval import DocDB, Retrieval
-from fetchers.wikipedia import Wikipedia
 
 
 class FactScorer(object):

@@ -12,21 +12,41 @@ from unique_claims as uq
     join selected_evidence se on uq.id = se.claim_id
     join documents docs on docs.document_id = uq.evidence_wiki_url
     left join atomic_facts_fever_short_dissim af on af.claim_id = uq.id
-where uq.set_type = '{set_type}' and 51=51--'{set_type}' and 10=10
+where uq.set_type = 'dev' --uq.set_type = '{set_type}' and 51=51--'{set_type}' and 10=10
 group by uq.id, docs.document_id
 """
 
 dataset_query = """
-with unique_claims as (
-select distinct dd.id, dd.claim, dd.evidence_sentence_id, dd.short_claim, dd.label, dd.evidence_wiki_url, dd.set_type
-from def_dataset dd)
-select uq.id, uq.claim as claim, uq.short_claim, uq.label, docs.document_id, docs.text,
-       docs.lines, GROUP_CONCAT(uq.evidence_sentence_id) as evidence_lines -- GROUP_CONCAT(distinct af.fact, '--;--') as atomic_facts
-from unique_claims as uq
-    join documents docs on docs.document_id = uq.evidence_wiki_url
-    -- left join atomic_facts_fever_short_dissim af on af.claim_id = uq.id
-where uq.set_type = '{set_type}' and label != 'NOT ENOUGH INFO'-- ''{set_type}' and 51=51--'{set_type}' and 10=10
-group by uq.id, docs.document_id
+WITH unique_claims AS (
+    SELECT DISTINCT 
+        dd.id, 
+        dd.claim, 
+        dd.evidence_sentence_id, 
+        dd.short_claim, 
+        dd.label, 
+        dd.evidence_wiki_url, 
+        dd.set_type
+    FROM def_dataset dd
+)
+SELECT 
+    uq.id, 
+    uq.claim AS claim, 
+    uq.short_claim, 
+    uq.label, 
+    docs.document_id, 
+    docs.text,
+    docs.lines, 
+    GROUP_CONCAT(uq.evidence_sentence_id, ';') AS evidence_lines,
+    (SELECT GROUP_CONCAT(se.evidence_lines)
+     FROM selected_evidence se
+     WHERE se.claim_id = uq.id and se.document_id = docs.document_id) AS selected_evidence_lines,
+    (SELECT GROUP_CONCAT(af.fact, '--;--') 
+     FROM atomic_facts_fever_short_dissim af 
+     WHERE af.claim_id = uq.id) AS atomic_facts
+FROM unique_claims AS uq
+JOIN documents docs ON docs.document_id = uq.evidence_wiki_url
+WHERE uq.set_type = '{set_type}' and uq.label != 'NOT ENOUGH INFO'
+GROUP BY uq.id, docs.document_id;
 """
 
 dataset_query1 = """
@@ -48,5 +68,5 @@ combined_datasets = DatasetDict({
      "test": test_dataset_raw
 })
 
-combined_datasets.push_to_hub("lukasellinger/fever_evidence_selection-v1", private=True, token=HF_WRITE_TOKEN)
+combined_datasets.push_to_hub("lukasellinger/fever_claim_verification_dissim-v1", private=True, token=HF_WRITE_TOKEN)
 

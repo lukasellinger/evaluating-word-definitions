@@ -8,6 +8,7 @@ from transformers import AutoTokenizer, AutoModel
 from config import DB_URL
 from database.db_retriever import FeverDocDB
 from dataset.def_dataset import DefinitionDataset
+from general_utils.utils import convert_document_id_to_word
 from models.evidence_selection_model import EvidenceSelectionModel
 from pipeline.pipeline import TestPipeline
 
@@ -32,12 +33,12 @@ def main(table):
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    model_name = 'lukasellinger/evidence_selection_model-v1'
-    model = AutoModel.from_pretrained('lukasellinger/evidence_selection_model-v1', trust_remote_code=True, add_pooling_layer=False, safe_serialization=True)
+    model_name = 'lukasellinger/evidence_selection_model-v2'
+    model = AutoModel.from_pretrained('lukasellinger/evidence_selection_model-v2', trust_remote_code=True, add_pooling_layer=False, safe_serialization=True)
     selection_model = EvidenceSelectionModel(model).to(device)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-    dataset_raw = Dataset.from_sql("""select dd.id, dd.claim, docs.text, docs.document_id, group_concat(dd.evidence_sentence_id, ';') as evidence_lines
+    dataset_raw = Dataset.from_sql("""select dd.id, dd.claim, dd.short_claim, docs.text, docs.document_id, group_concat(dd.evidence_sentence_id, ';') as evidence_lines
                                           from def_dataset dd
                                             join documents docs on docs.document_id = dd.evidence_wiki_url
                                             left join selected_evidence se on (dd.id, docs.document_id) = (se.claim_id, se.document_id)
@@ -52,8 +53,9 @@ def main(table):
     with FeverDocDB() as db:
         for entry in tqdm(dataset.data):
             try:
-                evidences = pipeline.fetch_evidence(entry['document_id'])
-                selected_evidence = pipeline.select_evidence(entry['claim'], evidences)
+                evidences, _ = pipeline.fetch_evidence(entry['document_id'])
+                claim = f"{convert_document_id_to_word(entry['document_id'])}: {entry['short_claim']}"
+                selected_evidence = pipeline.select_evidence(claim, evidences)
                 pr_evidence_lines = [evidence[1] for evidence in selected_evidence]
                 if gold_evidence_lines := entry['evidence_lines']:
                     evidence_groups = gold_evidence_lines.split(';')
