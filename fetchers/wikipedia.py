@@ -2,33 +2,46 @@
 import re
 from typing import List, Tuple, Dict
 import requests
+from datasets import load_dataset
 from requests import Response
 
 from general_utils.spacy_utils import split_into_sentences
-from general_utils.utils import generate_case_combinations, split_into_passages
+from general_utils.utils import generate_case_combinations, split_into_passages, \
+    remove_duplicate_values
 
 
 class Wikipedia:
     """Wrapper for wikipedia api calls."""
 
     USER_AGENT = 'summaryBot (lu.ellinger@gmx.de)'
-    URL = "https://{source_lang}.{site}.org/w/api.php"
+    BASE_URL = "https://{source_lang}.{site}.org/w/api.php"
 
-    def __init__(self, source_lang: str = 'en', user_agent: str = None):
-        if user_agent:
-            self.USER_AGENT = user_agent
+    def __init__(self, source_lang: str = 'en', user_agent: str = None, use_dataset: str = ''):
+        self.USER_AGENT = user_agent or self.USER_AGENT
         self.session = requests.Session()
         self.session.headers.update({'User-Agent': self.USER_AGENT})
-        self.URL = self.URL.format(source_lang=source_lang, site='{site}')
+        self.base_url = self.BASE_URL.format(source_lang=source_lang, site='{site}')
+        self.offline_backend = None
+        if use_dataset:
+            self.offline_backend = self._prepare_offline_backend(use_dataset)
+
+    def _prepare_offline_backend(self, dataset):
+        backend_dataset = load_dataset(dataset).get('train')
+        unique_values = backend_dataset.unique('search_word')
+
+        offline_backend = {}
+        for value in unique_values:
+            offline_backend[value] = [entry for entry in backend_dataset if value == entry['search_word']]
+        return offline_backend
 
     def _get_response(self, params, site: str, source_lang=None) -> Response:
         assert site in {'wikipedia', 'wiktionary'}
+        url = self.base_url.format(site=site) if not source_lang else self.BASE_URL.format(source_lang=source_lang,
+                                                                                           site=site)
+        return self.session.get(url=url, params=params)
 
-        if source_lang:
-            return self.session.get(url=Wikipedia.URL.format(source_lang=source_lang, site=site), params=params)
-        return self.session.get(url=self.URL.format(site=site), params=params)
-
-    def get_texts(self, word: str, k: int = 20, only_intro: bool = True, site: str = 'wikipedia') -> List[Tuple[str, List[str]]]:
+    def get_texts(self, word: str, k: int = 20, only_intro: bool = True, site: str = 'wikipedia') -> \
+    List[Tuple[str, List[str]]]:
         """
         Get the summary of the top k most similar (according to wikipedia search) articles of a word
         on wikipedia.
@@ -57,10 +70,10 @@ class Wikipedia:
 
         response = self._get_response(params, site='wikipedia')
         data = response.json()
-
         return [entry.get('pageid') for entry in data.get('query', {}).get('search', [])]
 
-    def get_text_from_page_ids(self, page_ids: List[int], only_intro: bool = True, site: str = 'wikipedia', split_text=False) -> List[Tuple[str, List[str]]]:
+    def get_text_from_page_ids(self, page_ids: List[int], only_intro: bool = True,
+                               site: str = 'wikipedia', split_level='sentence', return_raw=False) -> List[Tuple[str, List[str]]]:
         """
         Get the summary of the pages of page_ids on wikipedia.
         :param page_ids: Page_ids to get the summaries of.
@@ -81,39 +94,83 @@ class Wikipedia:
         if only_intro:
             params['exintro'] = "true"
 
-        return list(self._fetch_batch(params, site=site, split_text=split_text).items())
+        return list(self._fetch_batch(params, site=site, split_level=split_level, return_raw=return_raw).items())
 
-    def _fetch_batch(self, params: Dict, site: str, sentence_limit: int = 250, split_text=False) -> Dict:
+    def _fetch_batch(self, params: Dict, site: str, sentence_limit: int = 250,
+                     split_level: str = 'sentence', return_raw: bool = False) -> Dict:
+        """
+        Fetch a batch of text data from the specified site with optional cleaning and splitting.
+
+        :param params: Parameters for the API request.
+        :param site: Site from which to fetch data ('wikipedia' or 'wiktionary').
+        :param sentence_limit: Maximum number of sentences to include if split by sentences.
+        :param split_level: Level at which to split the text ('passage', 'sentence', 'none').
+        :param return_raw: Whether to return the raw text without cleaning and splitting.
+        :return: Dictionary of fetched texts with keys indicating the title and part.
+        """
         texts = {}  # dict to get rid of possible duplicates
         while True:
             response = self._get_response(params, site=site)
             data = response.json()
-            for _, value in data.get('query', {}).get('pages', {}).items():
-                if value.get('extract') and value.get('title'):
-                    title = str(value.get('title'))
-                    text = str(value.get('extract'))
-                    # section headlines disturb sentence splitting
-                    text = re.sub(r'(==+)\s*[^=]+?\s*==+', '.', text)
 
-                    # convert all whitespace chars except ' ' to '.'
-                    text = re.sub(r'[^\S ]', '.', text)
-                    text = re.sub(r"\.{2,}", ". ", text)
-                    text = re.sub(r"^[. ]+", "", text)
+            for page in data.get('query', {}).get('pages', {}).values():
+                title, text = str(page.get('title')), page.get('extract', '')
 
-                    if split_text:
-                        passages = split_into_passages(text)
-                        texts = {f'{title} ({site}) {i}': passage for i, passage in enumerate(passages)}  # TODO line numbers
+                if title and text:
+                    if return_raw:
+                        texts.update(self._split_text(title, site, text, split_level='none'))
                     else:
-                        sentences = split_into_sentences(text)
-                        texts[f'{title} ({site})'] = sentences[:sentence_limit]  # TODO line numbers
-            if continue_batch := data.get('continue'):
-                params.update(continue_batch)
-            else:
+                        text = self._clean_text(text)
+                        texts.update(
+                            self._split_text(title, site, text, split_level, sentence_limit))
+            if 'continue' not in data:
                 break
+            params.update(data['continue'])
+
         return texts
 
-    def get_text_from_title(self, page_titles: List[str], site: str = 'wikipedia', only_intro: bool = True, split_text=False) -> Dict:
-        def process():
+    @staticmethod
+    def _clean_text(text: str) -> str:
+        text = re.sub(r'(==+)\s*[^=]+?\s*==+', '.', text)
+        text = re.sub(r'[^\S ]', '.', text)
+        text = re.sub(r"\.{2,}", ". ", text)
+        text = re.sub(r"^[. ]+", "", text)
+        return text
+
+    @staticmethod
+    def _split_text(title: str, site: str, text: str, split_level: str = 'sentence',
+                    sentence_limit=250):
+        """
+        Split text based on the specified split level.
+
+        :param title: Title of the page.
+        :param site: Site from which the text is fetched.
+        :param text: The text to be split.
+        :param split_level: Level at which to split the text ('passage', 'sentence', 'none').
+        :param sentence_limit: Maximum number of sentences to include if split by sentences.
+        :return: Dictionary of split texts with keys indicating the title and part.
+        """
+        if split_level not in {'passage', 'sentence', 'none'}:
+            raise ValueError("split_level needs to be either 'passage', 'sentence', or 'none'")
+
+        texts = {}
+        key_base = f'{title} ({site})' if site else title
+
+        if split_level == 'passage':
+            passages = split_into_passages(text)
+            texts = {f'{key_base} {i}': passage for i, passage in enumerate(passages)}
+        elif split_level == 'sentence':
+            sentences = split_into_sentences(text)
+            texts[key_base] = sentences[:sentence_limit]
+        else:  # split_level == 'none'
+            texts[key_base] = text
+
+        return texts
+
+    def get_text_from_title(self, page_titles: List[str], site: str = 'wikipedia',
+                            only_intro: bool = True, split_level='sentence', return_raw=False) -> Dict:
+        results = {}
+        for batch_pages in self._chunk(page_titles, 50):  # wikipedia api supports a maximum of 50
             params = {
                 "action": "query",
                 "format": "json",
@@ -122,75 +179,88 @@ class Wikipedia:
                 "titles": "|".join(batch_pages),
                 "redirects": True  # Follow redirects, e.g. Light bulb to Electric light
             }
-
             if only_intro:
                 params['exintro'] = "true"
-
-            return self._fetch_batch(params, site, split_text=split_text)
-
-        results = {}
-        for i in range(0, len(page_titles), 50):  # wikipedia api supports a maximum of 50
-            batch_pages = page_titles[i:i + 50]
-            results.update(process())
+            results.update(self._fetch_batch(params, site, split_level=split_level, return_raw=return_raw))
         return results
 
     def find_similar_titles(self, search_term, k: int = 1000) -> List[str]:
         params = {
             "action": "opensearch",
             "format": "json",
-            "search": search_term + "_(",  # senses are disambiguated with (), e.g. run (song)
+            "search": f"{search_term}_(",  # senses are disambiguated with (), e.g. run (song)
             "limit": k
         }
-
         response = self._get_response(params, site='wikipedia')
         data = response.json()
 
-        similar_titles = [search_term]
-        for entry in data[1]:  # page titles
-            if re.fullmatch(f'{search_term}(?: \(.+\))?', entry, flags=re.IGNORECASE):
-                similar_titles.append(entry)
+        similar_titles = [search_term] + [
+            entry for entry in data[1]
+            if re.fullmatch(f'{search_term}(?: \(.+\))?', entry, flags=re.IGNORECASE)
+        ]
+        return list(set(similar_titles))
 
-        return list(set(s.lower() for s in similar_titles))
+    def get_pages(self, word: str, fallback_word: str = None, word_lang: str = None, only_intro=True,
+                  split_level='sentence', return_raw=False, search_word=''):
+        if self.offline_backend and search_word:
+            return self.get_pages_offline(search_word, only_intro, return_raw, split_level)
+        else:
+            return self.get_pages_online(word, fallback_word, word_lang, only_intro, split_level, return_raw)
 
-    def get_pages(self, word: str, fallback_word: str = None, word_lang: str = None, only_intro=True, split_text=False):
+    def get_pages_offline(self, search_word, only_intro, return_raw, split_level):
+        entries = self.offline_backend.get(search_word, [])
+        texts = {}
+        for entry in entries:
+            title = entry.get('title')
+            text = entry.get('raw_intro_text') if only_intro else entry.get['raw_full_text']
+            if return_raw:
+                texts.update(self._split_text(title, '', text, split_level='none'))
+            else:
+                text = self._clean_text(text)
+                texts.update(self._split_text(title, '', text, split_level))
+        return list(texts.items()), search_word
+
+    def get_pages_online(self, word: str, fallback_word: str = None, word_lang: str = None, only_intro=True,
+                         split_level='sentence', return_raw=False):
         word = word.lower()  # lower to find all results
-
         # check word in original language in english dictionary, need full page here
         case_words = generate_case_combinations(word)  # wiktionary titles are case-sensitive
         dict_text_word = self.get_text_from_title(case_words,
                                                   only_intro=False,
                                                   site='wiktionary',
-                                                  split_text=split_text)
+                                                  split_level=split_level,
+                                                  return_raw=return_raw)
         pages = dict_text_word
 
         if word_lang != 'en':
-            word = self.translate_word(word, fallback_word, word_lang)
+            word = self.translate_word(word, fallback_word, word_lang).lower()
             assert word, "Word could not be translated and no fallback word provided."
-            word = word.lower()
 
-        # check translated word in english dictionary, need full page here
-        dict_text_translated = self.get_text_from_title([word],
-                                                        only_intro=False,
-                                                        site='wiktionary',
-                                                        split_text=split_text)
-        pages.update(dict_text_translated)
+            # check translated word in english dictionary, need full page here
+            dict_text_translated = self.get_text_from_title([word],
+                                                            only_intro=False,
+                                                            site='wiktionary',
+                                                            split_level=split_level,
+                                                            return_raw=return_raw)
+            pages.update(dict_text_translated)
 
         # check normal wikipedia
         if similar_titles := self.find_similar_titles(word):
             wiki_texts = self.get_text_from_title(similar_titles,
                                                   only_intro=only_intro,
-                                                  split_text=split_text)
+                                                  split_level=split_level,
+                                                  return_raw=return_raw)
             pages.update(wiki_texts)
-
+        pages = remove_duplicate_values(pages)  # just to be sure no duplicate effort is made.
         return list(pages.items()), word
 
-    def translate_word(self, word: str, fallback_word=None, word_lang: str = 'de') -> str:
-        if interlang_word := self.get_interlanguage_title(word, source_lang=word_lang):
-            return interlang_word
-        else:
-            return fallback_word
 
-    def get_interlanguage_title(self, title, site: str = 'wikipedia', source_lang='de', target_lang="en"):
+    def translate_word(self, word: str, fallback_word='', word_lang: str = 'de') -> str:
+        interlang_word = self.get_interlanguage_title(word, source_lang=word_lang)
+        return interlang_word or fallback_word
+
+    def get_interlanguage_title(self, title, site: str = 'wikipedia', source_lang='de',
+                                target_lang="en"):
         params = {
             "action": "query",
             "format": "json",
@@ -198,18 +268,27 @@ class Wikipedia:
             "prop": "langlinks",
             "lllang": target_lang
         }
-
         response = self._get_response(params, site, source_lang)
         data = response.json()
-        page = next(iter(data.get('query', {}).get('pages', {}).values()))
+
+        page = next(iter(data.get('query', {}).get('pages', {}).values()), {})
         if langlinks := page.get('langlinks'):
-            word = langlinks[0].get('*')  # there is only one langlink
-            return word.split(' (')[0]
+            return langlinks[0].get('*').split(' (')[0]  # there is only one langlink
+
+    @staticmethod
+    def _chunk(items: List[str], size: int) -> List[List[str]]:
+        for i in range(0, len(items), size):
+            yield items[i:i + size]
 
 
 if __name__ == "__main__":
     wiki = Wikipedia()
-    wiki.get_pages('Chaos', 'Chaos', only_intro=True, word_lang='de')
-    a = wiki.find_similar_titles('Apple')
+    #full_docs, _ = wiki.get_pages('Hammer', 'Hammer', 'de', only_intro=False, return_raw=True)
+    #intro_docs, document_search_word = wiki.get_pages('Hammer', 'Hammer', word_lang='de', only_intro=True, return_raw=True)
+    #assert len(full_docs) == len(intro_docs), f'For Hammer, len(intro) != len(full)'
+
+    #wiki.get_text_from_title(['Love (Masaki Suda album)'])
+    a = wiki.get_pages('ERTU', 'ERTU', only_intro=True, word_lang='de', return_raw=True)
+    # a = wiki.find_similar_titles('Love')
     print('hi')
-    #print(wiki.get_pages('a', 'data a', word_lang='de', only_intro=True))
+    # print(wiki.get_pages('a', 'data a', word_lang='de', only_intro=True))

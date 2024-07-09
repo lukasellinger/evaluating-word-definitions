@@ -233,7 +233,7 @@ class Retrieval(object):
 
         if cache_key not in self.cache:
             texts, wiki_word = Wikipedia().get_pages(topic, fall_back_topic, self.word_lang,
-                                                     only_intro=self.only_intro, split_text=True)
+                                                     only_intro=self.only_intro, split_level='passage')
             question = f"{wiki_word}: {question}"
             ranked_indices = rank_docs(question, [entry[1][0] for entry in texts], k=k)
             passages = [{'title': str(texts[i][0]).split('(wik')[0], 'text': texts[i][1]} for i in ranked_indices]

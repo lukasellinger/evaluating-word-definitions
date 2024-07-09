@@ -21,7 +21,7 @@ class Pipeline:
         self.word_lang = word_lang
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    def verify(self, word: str, claim: str, fallback_word: str = None, split_facts: bool = True, only_intro: bool = True, atomic_claims = None) -> Dict:
+    def verify(self, word: str, claim: str, fallback_word: str = None, split_facts: bool = True, only_intro: bool = True, atomic_claims = None, search_word='') -> Dict:
         """
         Verify a claim related to a word.
         :param word: Word associated to the claim.
@@ -31,7 +31,7 @@ class Pipeline:
         output = {'factuality': -1,
                   'factualities': [],
                   'evidences': []}
-        ev_sents, wiki_word = self.fetch_evidence(word, fallback_word, only_intro)
+        ev_sents, wiki_word = self.fetch_evidence(word, fallback_word, only_intro, search_word)
 
         if ev_sents:
             claim = f"{wiki_word}: {claim}"
@@ -62,7 +62,7 @@ class Pipeline:
         """Process a claim. E.g. split it into its atomic facts."""
         return [claim]
 
-    def fetch_evidence(self, word: str, fallback_word: str = None, only_intro: bool = True) -> List[Tuple[str, List[str], List[str]]]:
+    def fetch_evidence(self, word: str, fallback_word: str = None, only_intro: bool = True, search_word= '') -> List[Tuple[str, List[str], List[str]]]:
         """
         Fetch the information of the word inside the knowledge base.
         :param word: Word, for which we need information.
@@ -162,7 +162,7 @@ class ModelPipeline(Pipeline):
 class TestPipeline(ModelPipeline):
     """Pipeline used for test purposes."""
 
-    def fetch_evidence(self, word: str, fallback_word: str = None, only_intro: bool = True) -> list[tuple[str, list[str], list[str]]]:
+    def fetch_evidence(self, word: str, fallback_word: str = None, only_intro: bool = True, search_word = '') -> list[tuple[str, list[str], list[str]]]:
         with FeverDocDB() as db:
             lines = db.get_doc_lines(word)
 
@@ -209,10 +209,10 @@ class WikiPipeline(ModelPipeline):
     """Pipeline using Wikipedia."""
 
     def __init__(self, selection_model=None, selection_model_tokenizer=None,
-                 verification_model=None, verification_model_tokenizer=None, word_lang=None):
+                 verification_model=None, verification_model_tokenizer=None, word_lang=None, use_offline_wiki=''):
         super().__init__(selection_model, selection_model_tokenizer, verification_model,
                          verification_model_tokenizer, word_lang)
-        self.wiki = Wikipedia()
+        self.wiki = Wikipedia(use_dataset=use_offline_wiki)
         self.fact_extractor = MixtralSplitter()
 
     def process_claim(self, claim: str, split_facts: bool = True) -> list[str]:
@@ -221,9 +221,8 @@ class WikiPipeline(ModelPipeline):
             return facts.get('facts') if facts.get('facts') else [claim]
         return [claim]
 
-    def fetch_evidence(self, word: str, fallback_word: str = None, only_intro: bool = True) -> list[tuple[str, list[str], list[str]]]:
-        texts, wiki_word = self.wiki.get_pages(word, fallback_word, self.word_lang, only_intro=only_intro)
-        #texts = self.wiki.get_texts(word, k=20, only_intro=only_intro)  # TODO line numbers
+    def fetch_evidence(self, word: str, fallback_word: str = None, only_intro: bool = True, search_word='') -> list[tuple[str, list[str], list[str]]]:
+        texts, wiki_word = self.wiki.get_pages(word, fallback_word, self.word_lang, only_intro=only_intro, search_word=search_word)
         return [(page, [str(i) for i in range(len(lines))], lines) for page, lines in texts], wiki_word
 
     def select_evidence(self, claim: str, evidence_list: list[tuple[str, list[str], list[str]]], top_k=3,
@@ -246,9 +245,23 @@ class WikiPipeline(ModelPipeline):
                 sentence_similarities.extend(sentence_similarity)
 
         sorted_sentences = sorted(sentence_similarities, key=lambda x: x[3], reverse=True)
-        return [(sentence[0], sentence[1], sentence[2]) for sentence in sorted_sentences[:top_k]]
+        return self._get_top_unique_sentences(sorted_sentences, top_k)
 
-    def mark_summary_sents(self, word):
-        ev_sentences_short = self.fetch_evidence(word, only_intro=True)
+    @staticmethod
+    def _get_top_unique_sentences(sorted_sentences, top_k=3):
+        unique_sentences = []
+        seen_sentences = set()
+
+        for sentence in sorted_sentences:
+            if sentence[2] not in seen_sentences:
+                unique_sentences.append((sentence[0], sentence[1], sentence[2]))
+                seen_sentences.add(sentence[2])
+            if len(unique_sentences) == top_k:
+                break
+
+        return unique_sentences
+
+    def mark_summary_sents(self, word, search_word):
+        ev_sentences_short = self.fetch_evidence(word, only_intro=True, search_word=search_word)
         max_summary_line_numbers = [(doc[0], max(int(line_number) for line_number in doc[1])) for doc in ev_sentences_short]
         return dict(max_summary_line_numbers)

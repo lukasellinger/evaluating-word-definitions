@@ -1,6 +1,7 @@
 """General utils for processing."""
 import itertools
 import re
+import string
 import subprocess
 from typing import List, Dict
 
@@ -216,3 +217,39 @@ def split_into_passages(text, passage_length=256):
     words = text.split()
     passages = [' '.join(words[i:i + passage_length]) for i in range(0, len(words), passage_length)]
     return passages
+
+
+def remove_duplicate_values(d: Dict):
+    """
+    Remove duplicate values from the dictionary, keeping only the first occurrence of each value.
+    """
+    seen_values = set()
+    unique_dict = {}
+
+    for key, value in d.items():
+        if isinstance(value, list):
+            value_tuple = tuple(value)  # Convert list to tuple
+        else:
+            value_tuple = value  # Use the value directly if it's not a list
+
+        if value_tuple not in seen_values:
+            unique_dict[key] = value
+            seen_values.add(value_tuple)
+    return unique_dict
+
+
+def parse_model_answer(generated_answer: str):
+    # when logits are unavailable
+    generated_answer = generated_answer.lower()
+    if "true" in generated_answer or "false" in generated_answer:
+        if "true" in generated_answer and "false" not in generated_answer:
+            is_supported = True
+        elif "false" in generated_answer and "true" not in generated_answer:
+            is_supported = False
+        else:
+            is_supported = generated_answer.index("true") > generated_answer.index("false")
+    else:
+        is_supported = all([keyword not in generated_answer.translate(
+                            str.maketrans("", "", string.punctuation)).split() for keyword in
+                                            ["not", "cannot", "unknown", "information"]])
+    return 'SUPPORTED' if is_supported else 'NOT_SUPPORTED'

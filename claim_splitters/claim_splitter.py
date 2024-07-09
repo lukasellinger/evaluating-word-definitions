@@ -3,8 +3,10 @@ from abc import ABC, abstractmethod
 from typing import List, Dict
 
 import requests
+from transformers import T5Tokenizer, T5ForConditionalGeneration
 
 from config import HF_READ_TOKENS
+from general_utils.spacy_utils import split_into_sentences
 from general_utils.utils import sentence_simplification
 
 
@@ -43,7 +45,7 @@ class MixtralSplitter(ClaimSplitter):
 
     def get_atomic_claims(self, text: str) -> Dict:
         output = self.query({'inputs': self.get_prompt(text),
-                                     'parameters': {'temperature': 0.01, 'return_full_text': False}},
+                             'parameters': {'temperature': 0.01, 'return_full_text': False}},
                             token=self.HF_TOKEN)
         if isinstance(output, dict):
             return {'error': output.get('error')}
@@ -114,3 +116,28 @@ class MixtralSplitter(ClaimSplitter):
         </s> [INST] Please deconstruct the following statement into its main distinct autonomous facts. Refrain from using any external resources. You are not responsible for evaluating the truthfulness or correctness of these facts; your task is only to identify them. Do not be too finegrained: {sentence} [/INST]
         """
         return prompt.format(sentence=txt)
+
+
+class T5SplitRephrase(ClaimSplitter):
+
+    def __init__(self):
+        checkpoint = "unikei/t5-base-split-and-rephrase"
+        self.tokenizer = T5Tokenizer.from_pretrained(checkpoint)
+        self.model = T5ForConditionalGeneration.from_pretrained(checkpoint)
+
+    def get_atomic_claims(self, text: str) -> Dict:
+        return self.get_atomic_claims_batch([text])[0]
+
+    def get_atomic_claims_batch(self, texts: List[str]) -> List[Dict]:
+        complex_tokenized = self.tokenizer(texts,
+                                           padding="longest",
+                                           truncation=True,
+                                           max_length=256,
+                                           return_tensors='pt')
+
+        simple_tokenized = self.model.generate(complex_tokenized['input_ids'],
+                                               attention_mask=complex_tokenized['attention_mask'],
+                                               max_length=256,
+                                               num_beams=5)
+        simple_texts = self.tokenizer.batch_decode(simple_tokenized, skip_special_tokens=True)
+        return [{'sentence': text, 'splits': list(set(split_into_sentences(simple)))} for text, simple in zip(texts, simple_texts)]
