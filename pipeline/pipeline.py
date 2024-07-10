@@ -57,6 +57,43 @@ class Pipeline:
             output['evidences'] = selected_evidences
         return output
 
+    def verify2(self, word: str, claim: str, fallback_word: str = None, split_facts: bool = True, only_intro: bool = True, atomic_claims = None, search_word='') -> Dict:
+        """
+        Verify a claim related to a word.
+        :param word: Word associated to the claim.
+        :param claim: Claim to be verified.
+        :return: dict containing factuality, atomic claim factualities and selected evidences.
+        """
+        output = {'factuality': -1,
+                  'factualities': [],
+                  'evidences': []}
+
+        ev_sents, wiki_word = self.fetch_evidence(word, fallback_word, only_intro, search_word)
+
+        if ev_sents:
+            total_factuality = 0
+            factualities = []
+            selected_evidences = None
+            for atomic_claim in atomic_claims:
+                atomic_claim = f'{wiki_word}: {atomic_claim}'
+                selected_evidences = self.select_evidence(atomic_claim, ev_sents)   # we need to know the line and the page the info was taken from
+                selected_ev_sents = [evidence[2] for evidence in selected_evidences]
+
+                #if atomic_claims:  # in order to use already computed atomic claims
+                #    atomic_claims = [f'{wiki_word}: {atomic_claim}' for atomic_claim in atomic_claims]
+                #else:
+                #    atomic_claims = self.process_claim(claim, split_facts=split_facts)
+                #    if split_facts:  # otherwise wiki_word twice
+                #        atomic_claims = [f'{wiki_word}: {atomic_claim}' for atomic_claim in atomic_claims]
+                factuality = self.verify_claim(atomic_claim, selected_ev_sents)
+                total_factuality += 1 if factuality == Fact.SUPPORTED else 0
+                factualities.append((atomic_claim, factuality))
+
+            output['factuality'] = total_factuality / len(atomic_claims)
+            output['factualities'] = factualities
+            output['evidences'] = selected_evidences
+        return output
+
     @staticmethod
     def process_claim(claim: str, split_facts: bool = True) -> List[str]:
         """Process a claim. E.g. split it into its atomic facts."""

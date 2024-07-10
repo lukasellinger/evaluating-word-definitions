@@ -4,27 +4,21 @@ import re
 import functools
 import string
 import spacy
-import sys
 import nltk
-import openai
 from rank_bm25 import BM25Okapi
 import os
-import time
 from nltk.tokenize import sent_tokenize
 
-from config import OPEN_AI_TOKEN, PROJECT_DIR
 from factscore.openai_lm import OpenAIModel
 
 nltk.download("punkt")
 
 
-class AtomicFactGenerator(object):
-    def __init__(self, key_path, demon_dir, gpt3_cache_file=None):
+class AtomicFactPromptGenerator(object):
+    def __init__(self, demon_dir):
         self.nlp = spacy.load("en_core_web_sm")
         self.is_bio = True
         self.demon_path = os.path.join(demon_dir, "demons.json" if self.is_bio else "demons_complex.json")
-
-        self.openai_lm = OpenAIModel("InstructGPT", cache_file=gpt3_cache_file, key_path=key_path)
 
         # get the demos
         with open(self.demon_path, 'r') as f:
@@ -33,16 +27,12 @@ class AtomicFactGenerator(object):
         tokenized_corpus = [doc.split(" ") for doc in self.demons.keys()]
         self.bm25 = BM25Okapi(tokenized_corpus)
 
-    def save_cache(self):
-        self.openai_lm.save_cache()
-
-    def run(self, generation, cost_estimate=None):
-        """Convert the generation into a set of atomic facts. Return a total words cost if cost_estimate != None."""
+    def get_prompt(self, generation, cost_estimate=None):
         assert isinstance(generation, str), "generation must be a string"
         paragraphs = [para.strip() for para in generation.split("\n") if len(para.strip()) > 0]
-        return self.get_atomic_facts_from_paragraph(paragraphs, cost_estimate=cost_estimate)
+        return self.get_prompts_from_paragraph(paragraphs, cost_estimate=cost_estimate)
 
-    def get_atomic_facts_from_paragraph(self, paragraphs, cost_estimate=None):
+    def get_prompts_from_paragraph(self, paragraphs, cost_estimate=None):
         sentences = []
         para_breaks = []
         for para_idx, paragraph in enumerate(paragraphs):
@@ -93,10 +83,7 @@ class AtomicFactGenerator(object):
 
         return atomic_facts_pairs, para_breaks
 
-
-    def get_init_atomic_facts_from_sentence(self, sentences, cost_estimate=None):
-        """Get the initial atomic facts from the sentences. Return a total words cost if cost_estimate != None."""
-
+    def create_prompt_from_sentence(self, sentence):
         is_bio = self.is_bio
         demons = self.demons
 
@@ -104,46 +91,43 @@ class AtomicFactGenerator(object):
         n = 7 if is_bio else 8
 
         prompts = []
-        prompt_to_sent = {}
-        atoms = {}
-        for sentence in sentences:
-            if sentence in atoms:
-                continue
-            top_machings = best_demos(sentence, self.bm25, list(demons.keys()), k)
-            prompt = ""
+        # top_machings = best_demos(sentence, self.bm25, list(demons.keys()), k)
+        #
+        # for i in range(n):
+        #     prompts.append({"role": "user",
+        #                    'content': "Please breakdown the following sentence into independent facts: {}\n".format(
+        #                    list(demons.keys())[i])})
+        #
+        #     assistant_prompt = {"role": "assistant",
+        #                         'content': ''}
+        #     for fact in demons[list(demons.keys())[i]]:
+        #         assistant_prompt['content'] = assistant_prompt['content'] + "- {}\n".format(fact)
+        #     prompts.append(assistant_prompt)
+        #
+        # for match in top_machings:
+        #     prompts.append({"role": "user",
+        #                     'content': "Please breakdown the following sentence into independent facts: {}\n".format(match)})
+        #     assistant_prompt = {"role": "assistant",
+        #                         'content': ''}
+        #     for fact in demons[match]:
+        #         assistant_prompt['content'] = assistant_prompt['content'] + "- {}\n".format(fact)
+        #     prompts.append(assistant_prompt)
 
-            for i in range(n):
-                prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(list(demons.keys())[i])
-                for fact in demons[list(demons.keys())[i]]:
-                    prompt = prompt + "- {}\n".format(fact)
-                prompt = prompt + "\n"
-
-            for match in top_machings:
-                prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(match)
-                for fact in demons[match]:
-                    prompt = prompt + "- {}\n".format(fact)
-                prompt = prompt + "\n"
-            prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(sentence)
-            prompts.append(prompt)
-            prompt_to_sent[prompt] = sentence
-
-        if cost_estimate:
-            total_words_estimate = 0
-            for prompt in prompts:
-                if cost_estimate == "consider_cache" and (prompt.strip() + "_0") in self.openai_lm.cache_dict:
-                    continue
-                total_words_estimate += len(prompt.split())
-            return total_words_estimate
-        else:
-            for prompt in prompts:
-                output, _ = self.openai_lm.generate(prompt)
-                atoms[prompt_to_sent[prompt]] = text_to_sentences(output)
-
-            for key, value in demons.items():
-                if key not in atoms:
-                    atoms[key] = value
-
-            return atoms
+        prompts.append({"role": "user",
+                        'content': "Please breakdown the following sentence into independent facts. Do not be too finegrained. Refrain from introducing new facts. Refrain from using world knowledge:\n Empire State Building: personal essay about Woody Allen\n"})
+        prompts.append({"role": "assistant",
+                        'content': "1. Empire State Building is a personal essay.\n2. Empire State Building is about Woody Allen."})
+        prompts.append({"role": "user",
+                        'content': "Please breakdown the following sentence into independent facts. Do not be too finegrained. Refrain from introducing new facts. Refrain from using world knowledge:\n Marilyn Monroe: part of the war effort\n"})
+        prompts.append({"role": "assistant",
+                        'content': "1. Marilyn Monroe was a part of the war effort."})
+        prompts.append({"role": "user",
+                        'content': "Please breakdown the following sentence into independent facts. Do not be too finegrained. Refrain from introducing new facts. Refrain from using world knowledge:\n Asthma: audio form of marketing communication.\n"})
+        prompts.append({"role": "assistant",
+                        'content': "1. Asthma is an audio form.\n2. Asthma is an form of marketing communication."})
+        prompts.append({"role": "user",
+                        'content': "Please breakdown the following sentence into independent facts. Do not be too finegrained. Refrain from introducing new facts. Refrain from using world knowledge:\n {}\n".format(sentence)})
+        return prompts
 
 
 def best_demos(query, bm25, demons_sents, k):
@@ -333,13 +317,3 @@ def fix_sentence_splitter(curr_sentences, initials):
             assert not combine_with_previous
             sentences.append(sent)
     return sentences
-
-
-def main():
-    generator = AtomicFactGenerator(PROJECT_DIR.joinpath('openai_key.txt'), "demos", gpt3_cache_file=PROJECT_DIR.joinpath('test'))
-    atomic_facts, para_breaks = generator.run("line: border marking painted on the floor")
-    print(atomic_facts)
-    print(para_breaks)
-
-if __name__ == "__main__":
-    main()
