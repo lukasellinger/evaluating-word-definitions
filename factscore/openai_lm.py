@@ -26,7 +26,6 @@ class OpenAIModel(LM):
         with open(key_path, 'r') as f:
             api_key = f.readline()
         self.client = OpenAI(api_key=api_key)
-        #openai.api_key = api_key.strip()
         self.model = self.model_name
 
     def _generate(self, prompt, max_sequence_length=2048, max_output_length=128):

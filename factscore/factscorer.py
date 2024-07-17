@@ -301,7 +301,6 @@ class CustomFactScorer(FactScorer):
         cache_path = os.path.join(self.cache_dir, f"retrieval-{name}.json")
         embed_cache_path = os.path.join(self.cache_dir, f"retrieval-{name}.pkl")
 
-        #self.db[name] = DocDB(db_path=db_path, data_path=data_path)
         self.retrieval[name] = Retrieval(None, cache_path, embed_cache_path,
                                          retrieval_type="wiki-api",
                                          word_lang='de', only_intro=True)

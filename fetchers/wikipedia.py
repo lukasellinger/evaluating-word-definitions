@@ -4,6 +4,7 @@ from typing import List, Tuple, Dict
 import requests
 from datasets import load_dataset
 from requests import Response
+from transformers import RobertaTokenizer
 
 from general_utils.spacy_utils import split_into_sentences
 from general_utils.utils import generate_case_combinations, split_into_passages, \
@@ -24,6 +25,7 @@ class Wikipedia:
         self.offline_backend = None
         if use_dataset:
             self.offline_backend = self._prepare_offline_backend(use_dataset)
+        self.tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
 
     def _prepare_offline_backend(self, dataset):
         backend_dataset = load_dataset(dataset).get('train')
@@ -137,8 +139,7 @@ class Wikipedia:
         text = re.sub(r"^[. ]+", "", text)
         return text
 
-    @staticmethod
-    def _split_text(title: str, site: str, text: str, split_level: str = 'sentence',
+    def _split_text(self, title: str, site: str, text: str, split_level: str = 'sentence',
                     sentence_limit=250):
         """
         Split text based on the specified split level.
@@ -157,7 +158,7 @@ class Wikipedia:
         key_base = f'{title} ({site})' if site else title
 
         if split_level == 'passage':
-            passages = split_into_passages(text)
+            passages = split_into_passages(split_into_sentences(text), self.tokenizer)
             texts = {f'{key_base} {i}': passage for i, passage in enumerate(passages)}
         elif split_level == 'sentence':
             sentences = split_into_sentences(text)
@@ -212,7 +213,9 @@ class Wikipedia:
         texts = {}
         for entry in entries:
             title = entry.get('title')
-            text = entry.get('raw_intro_text') if only_intro else entry.get['raw_full_text']
+            text = entry.get('raw_intro_text') if only_intro else entry.get('raw_full_text')
+            if not text:  # some wikipages do not have intro sections
+                continue
             if return_raw:
                 texts.update(self._split_text(title, '', text, split_level='none'))
             else:

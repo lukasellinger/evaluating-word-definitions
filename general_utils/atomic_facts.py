@@ -1,24 +1,19 @@
 import json
 import numpy as np
 import re
-import functools
 import string
 import spacy
-import nltk
 from rank_bm25 import BM25Okapi
 import os
 from nltk.tokenize import sent_tokenize
 
-from factscore.openai_lm import OpenAIModel
 
-nltk.download("punkt")
-
-
-class AtomicFactPromptGenerator(object):
-    def __init__(self, demon_dir):
+class FactScoreFactGenerator(object):
+    def __init__(self, demon_dir, is_bio=True):
         self.nlp = spacy.load("en_core_web_sm")
-        self.is_bio = True
-        self.demon_path = os.path.join(demon_dir, "demons.json" if self.is_bio else "demons_complex.json")
+        self.is_bio = is_bio
+        self.demon_path = os.path.join(demon_dir,
+                                       "demons.json" if self.is_bio else "demons_complex.json")
 
         # get the demos
         with open(self.demon_path, 'r') as f:
@@ -27,63 +22,36 @@ class AtomicFactPromptGenerator(object):
         tokenized_corpus = [doc.split(" ") for doc in self.demons.keys()]
         self.bm25 = BM25Okapi(tokenized_corpus)
 
-    def get_prompt(self, generation, cost_estimate=None):
-        assert isinstance(generation, str), "generation must be a string"
-        paragraphs = [para.strip() for para in generation.split("\n") if len(para.strip()) > 0]
-        return self.get_prompts_from_paragraph(paragraphs, cost_estimate=cost_estimate)
+    def get_prompt_for_sentence(self, sentence):
+        """Get the prompt for fact splitting of the sentence."""
 
-    def get_prompts_from_paragraph(self, paragraphs, cost_estimate=None):
-        sentences = []
-        para_breaks = []
-        for para_idx, paragraph in enumerate(paragraphs):
-            if para_idx > 0 :
-                para_breaks.append(len(sentences))
+        is_bio = self.is_bio
+        demons = self.demons
 
-            initials = detect_initials(paragraph)
+        k = 1 if is_bio else 0
+        n = 7 if is_bio else 8
 
-            curr_sentences = sent_tokenize(paragraph)
-            curr_sentences_2 = sent_tokenize(paragraph)
+        top_machings = best_demos(sentence, self.bm25, list(demons.keys()), k)
+        prompt = ""
 
-            curr_sentences = fix_sentence_splitter(curr_sentences, initials)
-            curr_sentences_2 = fix_sentence_splitter(curr_sentences_2, initials)
+        for i in range(n):
+            prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(
+                list(demons.keys())[i])
+            for fact in demons[list(demons.keys())[i]]:
+                prompt = prompt + "- {}\n".format(fact)
+            prompt = prompt + "\n"
 
-            # checking this, just to ensure the crediability of the sentence splitter fixing algorithm
-            assert curr_sentences == curr_sentences_2, (paragraph, curr_sentences, curr_sentences_2)
+        for match in top_machings:
+            prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(
+                match)
+            for fact in demons[match]:
+                prompt = prompt + "- {}\n".format(fact)
+            prompt = prompt + "\n"
+        prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(
+            sentence)
+        return prompt
 
-            sentences += curr_sentences
-
-        atoms_or_estimate = self.get_init_atomic_facts_from_sentence([sent for i, sent in enumerate(sentences) if not (not self.is_bio and ( \
-                            (i==0 and (sent.startswith("Sure") or sent.startswith("Here are"))) or \
-                            (i==len(sentences)-1 and (sent.startswith("Please") or sent.startswith("I hope") or sent.startswith("Here are")))))], cost_estimate=cost_estimate)
-
-        if cost_estimate:
-            return atoms_or_estimate
-        else:
-            atoms = atoms_or_estimate
-
-        atomic_facts_pairs = []
-        for i, sent in enumerate(sentences):
-            if not self.is_bio and ( \
-                (i==0 and (sent.startswith("Sure") or sent.startswith("Here are"))) or \
-                (i==len(sentences)-1 and (sent.startswith("Please") or sent.startswith("I hope") or sent.startswith("Here are")))):
-                atomic_facts_pairs.append((sent, []))
-            elif self.is_bio and sent.startswith("This sentence does not contain any facts"):
-                atomic_facts_pairs.append((sent, []))
-            elif sent.startswith("Sure") or sent.startswith("Please") or (i==0 and sent.startswith("Here are")):
-                atomic_facts_pairs.append((sent, []))
-            else:
-                atomic_facts_pairs.append((sent, atoms[sent]))
-
-        # postprocess_atomic_facts will fix minor issues from InstructGPT
-        # it is supposed to handle sentence splitter issue too, but since here
-        # we fixed sentence splitter issue already,
-        # the new para_breaks should be identical to the original para_breaks
-        if self.is_bio:
-            atomic_facts_pairs, para_breaks = postprocess_atomic_facts(atomic_facts_pairs, list(para_breaks), self.nlp)
-
-        return atomic_facts_pairs, para_breaks
-
-    def create_prompt_from_sentence(self, sentence):
+    def get_prompt_for_sentence2(self, sentence):
         is_bio = self.is_bio
         demons = self.demons
 
@@ -112,7 +80,6 @@ class AtomicFactPromptGenerator(object):
         #     for fact in demons[match]:
         #         assistant_prompt['content'] = assistant_prompt['content'] + "- {}\n".format(fact)
         #     prompts.append(assistant_prompt)
-
         prompts.append({"role": "user",
                         'content': "Please breakdown the following sentence into independent facts. Do not be too finegrained. Refrain from introducing new facts. Refrain from using world knowledge:\n Empire State Building: personal essay about Woody Allen\n"})
         prompts.append({"role": "assistant",
@@ -126,8 +93,21 @@ class AtomicFactPromptGenerator(object):
         prompts.append({"role": "assistant",
                         'content': "1. Asthma is an audio form.\n2. Asthma is an form of marketing communication."})
         prompts.append({"role": "user",
-                        'content': "Please breakdown the following sentence into independent facts. Do not be too finegrained. Refrain from introducing new facts. Refrain from using world knowledge:\n {}\n".format(sentence)})
+                        'content': "Please breakdown the following sentence into independent facts. Do not be too finegrained. Refrain from introducing new facts. Refrain from using world knowledge:\n {}\n".format(
+                            sentence)})
         return prompts
+
+    def get_facts_from_response(self, sentence, model_response: str):
+        facts = text_to_sentences(model_response)
+
+        # postprocess_atomic_facts will fix minor issues from InstructGPT
+        # it is supposed to handle sentence splitter issue too, but since here
+        # we fixed sentence splitter issue already,
+        # the new para_breaks should be identical to the original para_breaks
+        if self.is_bio:
+            facts = postprocess_atomic_facts(sentence, facts, self.nlp)
+
+        return facts
 
 
 def best_demos(query, bm25, demons_sents, k):
@@ -138,11 +118,13 @@ def best_demos(query, bm25, demons_sents, k):
 
 # transform InstructGPT output into sentences
 def text_to_sentences(text):
+    text = text.replace('\\n', '\n')
     sentences = text.split("- ")[1:]
-    sentences = [sent.strip()[:-1] if sent.strip()[-1] == '\n' else sent.strip() for sent in sentences]
-    if len(sentences) > 0: 
+    sentences = [sent.strip()[:-1] if sent.strip()[-1] == '\n' else sent.strip() for sent in
+                 sentences]
+    if len(sentences) > 0:
         if sentences[-1][-1] != '.':
-            sentences[-1] = sentences[-1] + '.' 
+            sentences[-1] = sentences[-1] + '.'
     else:
         sentences = []
     return sentences
@@ -150,20 +132,28 @@ def text_to_sentences(text):
 
 def normalize_answer(s):
     """Lower text and remove punctuation, articles and extra whitespace."""
+
     def remove_articles(text):
         regex = re.compile(r'\b(a|an|the)\b', re.UNICODE)
         return re.sub(regex, ' ', text)
+
     def white_space_fix(text):
         return ' '.join(text.split())
+
     def remove_punc(text):
         exclude = set(string.punctuation)
         return ''.join(ch for ch in text if ch not in exclude)
+
     def lower(text):
         return text.lower()
+
     return white_space_fix(remove_articles(remove_punc(lower(s))))
 
-MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September",
+          "October", "November", "December"]
 MONTHS = [m.lower() for m in MONTHS]
+
 
 def is_num(text):
     try:
@@ -172,6 +162,7 @@ def is_num(text):
     except Exception:
         return False
 
+
 def is_date(text):
     text = normalize_answer(text)
     for token in text.split(" "):
@@ -179,10 +170,12 @@ def is_date(text):
             return False
     return True
 
+
 def extract_numeric_values(text):
     pattern = r'\b\d+\b'  # regular expression pattern for integers
     numeric_values = re.findall(pattern, text)  # find all numeric values in the text
-    return set([value for value in numeric_values])  # convert the values to float and return as a list
+    return set(
+        [value for value in numeric_values])  # convert the values to float and return as a list
 
 
 def detect_entities(text, nlp):
@@ -196,7 +189,6 @@ def detect_entities(text, nlp):
         else:
             entities.add(text)
 
-
     for ent in doc.ents:
         # spacy often has errors with other types of entities
         if ent.label_ in ["DATE", "TIME", "PERCENT", "MONEY", "QUANTITY", "ORDINAL", "CARDINAL"]:
@@ -207,113 +199,56 @@ def detect_entities(text, nlp):
                 for token in ent.text.split():
                     if is_date(token):
                         _add_to_entities(token)
-        
+
     for new_ent in extract_numeric_values(text):
         if not np.any([new_ent in ent for ent in entities]):
             entities.add(new_ent)
 
     return entities
 
-def postprocess_atomic_facts(_atomic_facts, para_breaks, nlp):
 
-    verbs = ["born.", " appointed.", " characterized.", " described.", " known.", " member.", " advocate.", "served.", "elected."]
+def postprocess_atomic_facts(sent, atomic_facts, nlp):
+    verbs = ["born.", " appointed.", " characterized.", " described.", " known.", " member.",
+             " advocate.", "served.", "elected."]
     permitted_verbs = ["founding member."]
 
-    atomic_facts = []
     new_atomic_facts = []
-    new_para_breaks = []
 
-    for i, (sent, facts) in enumerate(_atomic_facts):
-        sent = sent.strip()
-        if len(sent.split())==1 and i not in para_breaks and i > 0:
-            assert i not in para_breaks
-            atomic_facts[-1][0] += " " + sent
-            atomic_facts[-1][1] += facts
-        else:
-            if i in para_breaks:
-                new_para_breaks.append(len(atomic_facts))
-            atomic_facts.append([sent, facts])
+    entities = detect_entities(sent, nlp)
+    covered_entities = set()
 
-    for i, (sent, facts) in enumerate(atomic_facts):
-        entities = detect_entities(sent, nlp)
-        covered_entities = set()
-        # print (entities)
-        new_facts = []
-        for i, fact in enumerate(facts):
-            if any([fact.endswith(verb) for verb in verbs]) and not any([fact.endswith(verb) for verb in permitted_verbs]):
-                if any([fact[:-1] in other_fact for j, other_fact in enumerate(facts) if j != i]):
-                    continue
-            sent_entities = detect_entities(fact, nlp)
-            covered_entities |= set([e for e in sent_entities if e in entities])
-            new_entities = sent_entities - entities
-            if len(new_entities) > 0:
-                do_pass = False
-                for new_ent in new_entities:
-                    pre_ent = None
-                    for ent in entities:
-                        if ent.startswith(new_ent):
-                            pre_ent = ent
-                            break
-                    if pre_ent is None:
-                        do_pass = True
-                        break
-                    fact = fact.replace(new_ent, pre_ent)
-                    covered_entities.add(pre_ent)
-                if do_pass:
-                    continue
-            if fact in new_facts:
+    new_facts = []
+    for i, fact in enumerate(atomic_facts):
+        if any([fact.endswith(verb) for verb in verbs]) and not any(
+                [fact.endswith(verb) for verb in permitted_verbs]):
+            if any([fact[:-1] in other_fact for j, other_fact in enumerate(atomic_facts) if j != i]):
                 continue
-            new_facts.append(fact)
-        try:
-            assert entities==covered_entities
-        except Exception:
-            new_facts = facts # there is a bug in spacy entity linker, so just go with the previous facts
-
-        new_atomic_facts.append((sent, new_facts))
-
-    return new_atomic_facts, new_para_breaks
-
-def is_integer(s):
-    try:
-        s = int(s)
-        return True
-    except Exception:
-        return False
-
-def detect_initials(text):
-    pattern = r"[A-Z]\. ?[A-Z]\."
-    match = re.findall(pattern, text)
-    return [m for m in match]
-
-def fix_sentence_splitter(curr_sentences, initials):
-    for initial in initials:
-        if not np.any([initial in sent for sent in curr_sentences]):
-            alpha1, alpha2 = [t.strip() for t in initial.split(".") if len(t.strip())>0]
-            for i, (sent1, sent2) in enumerate(zip(curr_sentences, curr_sentences[1:])):
-                if sent1.endswith(alpha1 + ".") and sent2.startswith(alpha2 + "."):
-                    # merge sentence i and i+1
-                    curr_sentences = curr_sentences[:i] + [curr_sentences[i] + " " + curr_sentences[i+1]] + curr_sentences[i+2:]
+        sent_entities = detect_entities(fact, nlp)
+        covered_entities |= set([e for e in sent_entities if e in entities])
+        new_entities = sent_entities - entities
+        if len(new_entities) > 0:
+            do_pass = False
+            for new_ent in new_entities:
+                pre_ent = None
+                for ent in entities:
+                    if ent.startswith(new_ent):
+                        pre_ent = ent
+                        break
+                if pre_ent is None:
+                    do_pass = True
                     break
-    sentences = []
-    combine_with_previous = None
-    for sent_idx, sent in enumerate(curr_sentences):
-        if len(sent.split())<=1 and sent_idx==0:
-            assert not combine_with_previous
-            combine_with_previous = True
-            sentences.append(sent)
-        elif len(sent.split())<=1:
-            assert sent_idx > 0
-            sentences[-1] += " " + sent
-            combined_with_previous = False
-        elif sent[0].isalpha() and not sent[0].isupper() and sent_idx > 0:
-            assert sent_idx > 0, curr_sentences
-            sentences[-1] += " " + sent
-            combine_with_previous = False
-        elif combine_with_previous:
-            assert sent_idx > 0
-            sentences[-1] += " " + sent
-            combine_with_previous = False
-        else:
-            assert not combine_with_previous
-            sentences.append(sent)
-    return sentences
+                fact = fact.replace(new_ent, pre_ent)
+                covered_entities.add(pre_ent)
+            if do_pass:
+                continue
+        if fact in new_facts:
+            continue
+        new_facts.append(fact)
+    try:
+        assert entities == covered_entities
+    except Exception:
+        new_facts = atomic_facts  # there is a bug in spacy entity linker, so just go with the previous facts
+
+    new_atomic_facts.append(new_facts)
+
+    return new_atomic_facts

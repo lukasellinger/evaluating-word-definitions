@@ -9,6 +9,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from rank_bm25 import BM25Okapi
 from sklearn.metrics import accuracy_score, f1_score
+from transformers import RobertaTokenizer
 
 from config import PROJECT_DIR
 from general_utils.reader import LineReader, JSONReader
@@ -213,7 +214,7 @@ def process_sentence(sentence):
     return sentence
 
 
-def split_into_passages(text, passage_length=256):
+def split_into_passages_by_word(text, passage_length=256):
     words = text.split()
     passages = [' '.join(words[i:i + passage_length]) for i in range(0, len(words), passage_length)]
     return passages
@@ -272,3 +273,25 @@ def get_openai_prediction(response):
         return 'SUPPORTED' if true_logprob > false_logprob else 'NOT_SUPPORTED'
     else:
         return 'UNKNOWN'
+
+
+def split_into_passages(text, tokenizer, max_lenght=256):
+    if type(text) == str:
+        text = [text]
+    passages = [[]]
+    for sent_idx, sent in enumerate(text):
+        assert len(sent.strip()) > 0
+        tokens = tokenizer(sent)["input_ids"]
+        max_length = max_lenght - len(passages[-1])
+        if len(tokens) <= max_length:
+            passages[-1].extend(tokens)
+        else:
+            passages[-1].extend(tokens[:max_length])
+            offset = max_length
+            while offset < len(tokens):
+                passages.append(tokens[offset:offset + max_length])
+                offset += max_lenght
+
+    psgs = [tokenizer.decode(tokens) for tokens in passages if
+            np.sum([t not in [0, 2] for t in tokens]) > 0]
+    return psgs
