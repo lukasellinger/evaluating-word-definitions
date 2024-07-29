@@ -36,16 +36,18 @@ class Wikipedia:
         return offline_backend
 
     def get_offline_max_intro_sent_idx(self) -> Dict:
-        return {e['title']: int(e['intro_end_sent_idx']) for k, v in self.offline_backend.items() for e in v}
+        return {e['title']: int(e['intro_end_sent_idx']) for k, v in self.offline_backend.items()
+                for e in v}
 
     def _get_response(self, params, site: str, source_lang=None) -> Response:
         assert site in {'wikipedia', 'wiktionary'}
-        url = self.base_url.format(site=site) if not source_lang else self.BASE_URL.format(source_lang=source_lang,
-                                                                                           site=site)
+        url = self.base_url.format(site=site) if not source_lang else self.BASE_URL.format(
+            source_lang=source_lang,
+            site=site)
         return self.session.get(url=url, params=params)
 
     def get_texts(self, word: str, k: int = 20, only_intro: bool = True, site: str = 'wikipedia') -> \
-    List[Tuple[str, List[str]]]:
+            List[Tuple[str, List[str]]]:
         """
         Get the summary of the top k most similar (according to wikipedia search) articles of a word
         on wikipedia.
@@ -77,7 +79,8 @@ class Wikipedia:
         return [entry.get('pageid') for entry in data.get('query', {}).get('search', [])]
 
     def get_text_from_page_ids(self, page_ids: List[int], only_intro: bool = True,
-                               site: str = 'wikipedia', split_level='sentence', return_raw=False) -> List[Tuple[str, List[str]]]:
+                               site: str = 'wikipedia', split_level='sentence', return_raw=False) -> \
+            List[Tuple[str, List[str]]]:
         """
         Get the summary of the pages of page_ids on wikipedia.
         :param page_ids: Page_ids to get the summaries of.
@@ -98,7 +101,8 @@ class Wikipedia:
         if only_intro:
             params['exintro'] = "true"
 
-        return list(self._fetch_batch(params, site=site, split_level=split_level, return_raw=return_raw).items())
+        return list(self._fetch_batch(params, site=site, split_level=split_level,
+                                      return_raw=return_raw).items())
 
     def _fetch_batch(self, params: Dict, site: str, sentence_limit: int = 250,
                      split_level: str = 'sentence', return_raw: bool = False) -> Dict:
@@ -171,7 +175,8 @@ class Wikipedia:
         return texts
 
     def get_text_from_title(self, page_titles: List[str], site: str = 'wikipedia',
-                            only_intro: bool = True, split_level='sentence', return_raw=False) -> Dict:
+                            only_intro: bool = True, split_level='sentence',
+                            return_raw=False) -> Dict:
         results = {}
         for batch_pages in self._chunk(page_titles, 50):  # wikipedia api supports a maximum of 50
             params = {
@@ -184,7 +189,8 @@ class Wikipedia:
             }
             if only_intro:
                 params['exintro'] = "true"
-            results.update(self._fetch_batch(params, site, split_level=split_level, return_raw=return_raw))
+            results.update(
+                self._fetch_batch(params, site, split_level=split_level, return_raw=return_raw))
         return results
 
     def find_similar_titles(self, search_term, k: int = 1000) -> List[str]:
@@ -203,12 +209,14 @@ class Wikipedia:
         ]
         return list(set(similar_titles))
 
-    def get_pages(self, word: str, fallback_word: str = None, word_lang: str = None, only_intro=True,
+    def get_pages(self, word: str, fallback_word: str = None, word_lang: str = None,
+                  only_intro=True,
                   split_level='sentence', return_raw=False, search_word=''):
         if self.offline_backend and search_word:
             return self.get_pages_offline(search_word, only_intro, return_raw, split_level)
         else:
-            return self.get_pages_online(word, fallback_word, word_lang, only_intro, split_level, return_raw)
+            return self.get_pages_online(word, fallback_word, word_lang, only_intro, split_level,
+                                         return_raw)
 
     def get_pages_offline(self, search_word, only_intro, return_raw, split_level):
         entries = self.offline_backend.get(search_word, [])
@@ -225,7 +233,8 @@ class Wikipedia:
                 texts.update(self._split_text(title, '', text, split_level))
         return list(texts.items()), search_word
 
-    def get_pages_online(self, word: str, fallback_word: str = None, word_lang: str = None, only_intro=True,
+    def get_pages_online(self, word: str, fallback_word: str = None, word_lang: str = None,
+                         only_intro=True,
                          split_level='sentence', return_raw=False):
         word = word.lower()  # lower to find all results
         # check word in original language in english dictionary, need full page here
@@ -258,7 +267,6 @@ class Wikipedia:
             pages.update(wiki_texts)
         pages = remove_duplicate_values(pages)  # just to be sure no duplicate effort is made.
         return list(pages.items()), word
-
 
     def translate_word(self, word: str, fallback_word='', word_lang: str = 'de') -> str:
         interlang_word = self.get_interlanguage_title(word, source_lang=word_lang)
@@ -293,7 +301,7 @@ if __name__ == "__main__":
     #assert len(full_docs) == len(intro_docs), f'For Hammer, len(intro) != len(full)'
 
     #wiki.get_text_from_title(['Love (Masaki Suda album)'])
-    a = wiki.get_pages('ERTU', 'ERTU', only_intro=True, word_lang='de', return_raw=True)
+    a = wiki.get_pages('ERTU', 'ERTU', only_intro=True, word_lang='de')
     # a = wiki.find_similar_titles('Love')
     print('hi')
     # print(wiki.get_pages('a', 'data a', word_lang='de', only_intro=True))

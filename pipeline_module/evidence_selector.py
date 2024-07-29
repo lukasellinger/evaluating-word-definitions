@@ -62,7 +62,7 @@ class ModelEvidenceSelector(EvidenceSelector):
         """
         self.model_name = model_name or self.MODEL_NAME
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = None
 
     def load_model(self):
@@ -109,7 +109,7 @@ class ModelEvidenceSelector(EvidenceSelector):
         ranked_evidence_batch = []
         for claim, evidences in zip(batch, evidence_batch):
             if len(evidences) > max_evidence_count:
-                ranked_indices = rank_docs(claim['text'], [" ".join(evidence[2]) for evidence in evidences], k=max_evidence_count)
+                ranked_indices = rank_docs(claim['text'], [" ".join(evidence.get('lines')) for evidence in evidences], k=max_evidence_count)
                 ranked_evidence_batch.append([evidences[i] for i in ranked_indices])
             else:
                 ranked_evidence_batch.append(evidences)
@@ -123,10 +123,10 @@ class ModelEvidenceSelector(EvidenceSelector):
                 statement_embeddings = self.model(**statement_model_input)
 
             sentence_similarities = []
-            for page, line_numbers, sentences in evidences:
-                sentence_similarities.extend(self._compute_sentence_similarities(page, line_numbers, sentences, statement_embeddings))
+            for entry in evidences:
+                sentence_similarities.extend(self._compute_sentence_similarities(entry['title'], entry['line_indices'], entry['lines'], statement_embeddings))
 
-            sorted_sentences = sorted(sentence_similarities, key=lambda x: x[3], reverse=True)
+            sorted_sentences = sorted(sentence_similarities, key=lambda x: x['sim'], reverse=True)
             top_sentences = self._get_top_unique_sentences(sorted_sentences, top_k)
             top_sentences_batch.append(top_sentences)
         return top_sentences_batch
@@ -141,7 +141,7 @@ class ModelEvidenceSelector(EvidenceSelector):
         with torch.no_grad():
             sentence_embeddings = self.model(**sentences_model_input)
             claim_similarities = cosine_similarity(statement_embeddings, sentence_embeddings, dim=2).tolist()[0]
-        return [(page, line_num, sentence, sim) for line_num, sentence, sim in zip(line_numbers, sentences, claim_similarities)]
+        return [{'title': page, 'line_idx': line_num, 'text': sentence, 'sim': sim} for line_num, sentence, sim in zip(line_numbers, sentences, claim_similarities)]
 
     def _encode_sentences(self, sentences: List[str]):
         encoded_sequence = []
@@ -160,10 +160,10 @@ class ModelEvidenceSelector(EvidenceSelector):
     def _get_top_unique_sentences(sorted_sentences: List[tuple], top_k: int = 3):
         unique_sentences = []
         seen_sentences = set()
-        for sentence in sorted_sentences:
-            if sentence[2] not in seen_sentences:
-                unique_sentences.append((sentence[0], sentence[1], sentence[2]))
-                seen_sentences.add(sentence[2])
+        for entry in sorted_sentences:
+            if entry['text'] not in seen_sentences:
+                unique_sentences.append(entry)
+                seen_sentences.add(entry['text'])
             if len(unique_sentences) == top_k:
                 break
         return unique_sentences

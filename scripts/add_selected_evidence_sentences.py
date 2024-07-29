@@ -10,7 +10,7 @@ from database.db_retriever import FeverDocDB
 from dataset.def_dataset import DefinitionDataset
 from general_utils.utils import convert_document_id_to_word
 from models.evidence_selection_model import EvidenceSelectionModel
-from pipeline.pipeline import TestPipeline
+from pipeline_module.pipeline import TestPipeline
 
 
 def main(table):

@@ -61,7 +61,7 @@ class ModelStatementVerifier(StatementVerifier):
         """
         self.model_name = model_name or self.MODEL_NAME
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = None
 
     def load_model(self):
@@ -97,7 +97,7 @@ class ModelStatementVerifier(StatementVerifier):
         if not self.model:
             self.load_model()
 
-        hypothesis_batch = [' '.join([sentence[2] for sentence in entry[::-1]]) for entry in evids_batch]
+        hypothesis_batch = [' '.join([sentence['text'] for sentence in entry[::-1]]) for entry in evids_batch]
 
         predictions_batch = []
         for statement, hypothesis in zip(statements, hypothesis_batch):

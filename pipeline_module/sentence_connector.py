@@ -26,7 +26,7 @@ class ColonSentenceConnector(SentenceConnector):
         return f'{word}: {text}'
 
     def connect_batch(self, batch: List[Dict]) -> List[str]:
-        return [f'{entry["word"]}: {entry["text"]}' for entry in batch]
+        return [{'text': f'{entry["word"]}: {entry["text"]}'} for entry in batch]
 
 
 class PhiSentenceConnector(SentenceConnector):
@@ -74,7 +74,7 @@ class PhiSentenceConnector(SentenceConnector):
         prompts = [self.get_prompt(entry['word'], entry['text']) for entry in batch]
         outputs = self.pipe(prompts, **self.generation_args)
 
-        return [self.clean_output(entry, output[0]['generated_text'].strip()) for entry, output in zip(batch, outputs)]
+        return [{'text': self.clean_output(entry, output[0]['generated_text'].strip())} for entry, output in zip(batch, outputs)]
 
     @staticmethod
     def get_prompt(word: str, text: str) -> List[Dict[str, str]]:

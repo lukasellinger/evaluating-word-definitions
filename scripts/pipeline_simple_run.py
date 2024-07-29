@@ -1,7 +1,7 @@
 from transformers import AutoTokenizer, AutoModel
 
 from models.evidence_selection_model import EvidenceSelectionModel
-from pipeline.pipeline import WikiPipeline
+from pipeline_module.pipeline import WikiPipeline
 
 selection_model_name = 'lukasellinger/evidence_selection_model-v1'
 selection_model_tokenizer = AutoTokenizer.from_pretrained(selection_model_name)

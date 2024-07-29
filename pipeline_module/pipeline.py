@@ -7,12 +7,12 @@ from tqdm import tqdm
 
 from dataset.def_dataset import Fact
 from general_utils.reader import JSONLineReader
-from pipeline.claim_splitter import ClaimSplitter, DisSimSplitter
-from pipeline.evidence_fetcher import EvidenceFetcher, WikipediaEvidenceFetcher
-from pipeline.evidence_selector import EvidenceSelector, ModelEvidenceSelector
-from pipeline.sentence_connector import SentenceConnector, ColonSentenceConnector
-from pipeline.statement_verifier import StatementVerifier, ModelStatementVerifier
-from pipeline.translator import Translator, OpusMTTranslator
+from pipeline_module.claim_splitter import ClaimSplitter, DisSimSplitter
+from pipeline_module.evidence_fetcher import EvidenceFetcher, WikipediaEvidenceFetcher
+from pipeline_module.evidence_selector import EvidenceSelector, ModelEvidenceSelector
+from pipeline_module.sentence_connector import SentenceConnector, ColonSentenceConnector
+from pipeline_module.statement_verifier import StatementVerifier, ModelStatementVerifier
+from pipeline_module.translator import Translator, OpusMTTranslator
 
 
 class Pipeline:
@@ -51,7 +51,8 @@ class Pipeline:
             translation_batch = processed_batch
             evid_fetcher_input = [{**b, 'translated_word': b.get('word')} for b in batch]
 
-        evid_words, evids = self.evid_fetcher(evid_fetcher_input, word_lang=self.lang, only_intro=only_intro)
+        evid_words, evids = self.evid_fetcher(evid_fetcher_input, word_lang=self.lang,
+                                              only_intro=only_intro)
 
         outputs = []
         filtered_batch = []
@@ -75,7 +76,7 @@ class Pipeline:
         processed_batch = self.sent_connector(filtered_translations)
 
         if self.claim_splitter:
-            processed_batch = self.claim_splitter(processed_batch)
+            processed_batch = self.claim_splitter([entry['text'] for entry in processed_batch])
 
         evids_batch = self.evid_selector(processed_batch, filtered_evids)
         factualities = self.stm_verifier(processed_batch, evids_batch)
@@ -87,7 +88,8 @@ class Pipeline:
                             'selected_evidences': evidence})
         return outputs
 
-    def verify(self, word: str, claim: str, search_word: Optional[str] = None, only_intro: bool = True):
+    def verify(self, word: str, claim: str, search_word: Optional[str] = None,
+               only_intro: bool = True):
         """
         Verify a single claim.
 
@@ -137,7 +139,10 @@ class Pipeline:
             processed_batch = [{'splits': entry[f'{split_type}_facts']} for entry in filtered_batch]
         else:
             if isinstance(self.sent_connector, ColonSentenceConnector):
-                processed_batch = self.sent_connector(filtered_batch)
+                processed_batch = self.sent_connector([{'word': entry['document_search_word'],
+                                                        'text': entry.get('english_claim',
+                                                                          entry['claim'])} for entry
+                                                       in filtered_batch])
             else:
                 processed_batch = [{'text': entry['connected_claim']} for entry in filtered_batch]
 
@@ -151,17 +156,19 @@ class Pipeline:
                             'connected_claim': entry.get('connected_claim'),
                             'label': entry.get('label'),
                             **factuality,
-                            'evidence': evidence
+                            'evidence': self._prep_evidence_output(evidence)
                             })
         return outputs
 
     def _prep_evidence_output(self, evidence):
-        max_intro_sent_indices = self.evid_fetcher.mark_summary_sents_test_batch()
+        max_intro_sent_indices = self.evid_fetcher.get_max_intro_sent_idx()
         for entry in evidence:
-            entry['in_intro'] = entry.get('line_idx') <= max_intro_sent_indices.get(entry.get('title'), -1)
+            entry['in_intro'] = entry.get('line_idx') <= max_intro_sent_indices.get(
+                entry.get('title'), -1)
         return evidence
 
-    def verify_test_dataset(self, dataset, batch_size: int = 4, output_file: str = '', only_intro: bool = True):
+    def verify_test_dataset(self, dataset, batch_size: int = 4, output_file: str = '',
+                            only_intro: bool = True):
         """
         Verify a test dataset.
 
@@ -215,10 +222,14 @@ if __name__ == "__main__":
 
     pipeline = Pipeline(translator, sent_connector, claim_splitter, evid_fetcher, evid_selector,
                         stm_verifier, lang)
-    #result = pipeline.verify_batch([ {'word': 'ERTU', 'text': 'die staatliche Rundfunkgesellschaft Ägyptens', 'search_word': 'ertu'},
-    #                                 {'word': 'Kindergewerkschaft', 'text': 'I like to swim and dance', 'search_word': "children's union"}])
-    #print(result)
+    result = pipeline.verify_batch([{'word': 'ERTU',
+                                     'text': 'die staatliche Rundfunkgesellschaft Ägyptens',
+                                     'search_word': 'ertu'},
+                                    {'word': 'Kindergewerkschaft',
+                                     'text': 'I like to swim and dance',
+                                     'search_word': "children's union"}])
+    print(result)
     #result = pipeline.verify_batch([{'word': 'ERTU', 'text': 'die staatliche Rundfunkgesellschaft Ägyptens', 'search_word': 'ertu'}])
     #print(result)
-    dataset = load_dataset('lukasellinger/german_dpr_claim_verification_dissim-v1', split='train')
+    dataset = load_dataset('lukasellinger/german_dpr-claim_verification', split='test')
     pipeline.verify_test_dataset(dataset, 4)

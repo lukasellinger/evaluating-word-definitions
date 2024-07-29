@@ -1,8 +1,8 @@
 from datasets import load_dataset
 
 from config import HF_WRITE_TOKEN
-from pipeline.evidence_fetcher import WikipediaEvidenceFetcher
-from pipeline.pipeline import Pipeline
+from pipeline_module.evidence_fetcher import WikipediaEvidenceFetcher
+from pipeline_module.pipeline import Pipeline
 
 dataset = 'lukasellinger/wiki_dump_2024-07-08'
 dataset = load_dataset(dataset).get('train')
