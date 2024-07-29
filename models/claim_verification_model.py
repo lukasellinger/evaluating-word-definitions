@@ -12,9 +12,9 @@ class ClaimVerificationModel(nn.Module):
         super().__init__()
         self.model = model
 
-    def forward(self, input_ids=None, attention_mask=None):
+    def forward(self, **kwargs):
         """Forward function."""
-        return self.model(input_ids=input_ids, attention_mask=attention_mask)
+        return self.model(**kwargs)
 
     def save(self, name):
         """Stores the model."""

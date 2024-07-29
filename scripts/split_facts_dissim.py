@@ -34,7 +34,7 @@ def main(table, fact_table, claim_col):
     stats = defaultdict(int)
     with FeverDocDB() as db:
         for claim in tqdm(output):
-            original_claim = claim.get('sentence')
+            original_claim = claim.get('text')
             claim_ids = [claim_id[0] for claim_id in db.read(GET_CLAIM_ID, (original_claim,))]
             assert claim_ids, f'No claim_ids associated with {original_claim} found.'
 

@@ -161,7 +161,7 @@ def sentence_simplification(sentences: List[str]):
     command = ["mvn", "-f", discourse_simplification.joinpath("pom.xml"), "clean", "compile", "exec:java"]
     subprocess.run(command, text=True, cwd=discourse_simplification)
     outputs = JSONReader().read(discourse_simplification.joinpath('output.json')).get('sentences')
-    outputs = [{'sentence': entry.get('originalSentence'),
+    outputs = [{'text': entry.get('originalSentence'),
                 'splits': [split.get('text') for split in entry.get('elementMap').values()]}
                for entry in outputs]
     return outputs
@@ -295,3 +295,11 @@ def split_into_passages(text, tokenizer, max_lenght=256):
     psgs = [tokenizer.decode(tokens) for tokens in passages if
             np.sum([t not in [0, 2] for t in tokens]) > 0]
     return psgs
+
+
+def print_classification_report(report, not_in_wiki, avg_claim_count):
+    print('################################')
+    print(f'Not in wikipedia: {not_in_wiki}')
+    print(f'Avg claim count: {avg_claim_count}')
+    print(report)
+    print('################################')

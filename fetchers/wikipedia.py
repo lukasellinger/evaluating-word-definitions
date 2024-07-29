@@ -1,6 +1,8 @@
 """Module for making api call to wikipedia."""
 import re
 from typing import List, Tuple, Dict
+
+import pandas as pd
 import requests
 from datasets import load_dataset
 from requests import Response
@@ -28,12 +30,9 @@ class Wikipedia:
         self.tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
 
     def _prepare_offline_backend(self, dataset):
-        backend_dataset = load_dataset(dataset).get('train')
-        unique_values = backend_dataset.unique('search_word')
-
-        offline_backend = {}
-        for value in unique_values:
-            offline_backend[value] = [entry for entry in backend_dataset if value == entry['search_word']]
+        backend_dataset = pd.DataFrame(load_dataset(dataset).get('train'))
+        offline_backend = backend_dataset.groupby('search_word').apply(
+            lambda x: x.to_dict(orient='records')).to_dict()
         return offline_backend
 
     def _get_response(self, params, site: str, source_lang=None) -> Response:
