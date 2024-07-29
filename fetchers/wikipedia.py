@@ -35,6 +35,9 @@ class Wikipedia:
             lambda x: x.to_dict(orient='records')).to_dict()
         return offline_backend
 
+    def get_offline_max_intro_sent_idx(self) -> Dict:
+        return {e['title']: int(e['intro_end_sent_idx']) for k, v in self.offline_backend.items() for e in v}
+
     def _get_response(self, params, site: str, source_lang=None) -> Response:
         assert site in {'wikipedia', 'wiktionary'}
         url = self.base_url.format(site=site) if not source_lang else self.BASE_URL.format(source_lang=source_lang,

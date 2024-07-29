@@ -47,6 +47,10 @@ class EvidenceFetcher(ABC):
         """
         pass
 
+    @abstractmethod
+    def mark_summary_sents_test_batch(self, batch, word_lang='de'):
+        pass
+
 
 class WikipediaEvidenceFetcher(EvidenceFetcher):
     """
@@ -125,9 +129,26 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
 
         return evid_words, evids
 
+    def mark_summary_sents_test_batch(self, batch, word_lang='de'):
+        evids_batch = [{'word': entry.get('word'),
+                        'translated_word': entry.get('english_word', entry.get('word')),
+                        'search_word': entry['document_search_word']} for entry in batch]
+
+        _, intro_evids_batch = self.fetch_evidences_batch(evids_batch, word_lang=word_lang, only_intro=True)
+        max_summary_line_numbers = {
+            doc[0]: max(map(int, doc[1]))
+            for intro_evid in intro_evids_batch
+            for doc in intro_evid
+        }
+        return max_summary_line_numbers
+
+    def get_max_intro_sent_idx(self):
+        return self.wiki.get_offline_max_intro_sent_idx if self.offline else {}
+
 
 if __name__ == "__main__":
     fetcher = WikipediaEvidenceFetcher()
+    fetcher.wiki.get_offline_max_intro_sent_idx()
     result = fetcher.fetch_evidences_batch([
         {'search_word': 'censorship'},
         {'search_word': 'printed circuit board'}

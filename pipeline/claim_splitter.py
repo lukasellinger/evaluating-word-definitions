@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict
 
 import requests
+import torch
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 
 from config import HF_READ_TOKENS, PROJECT_DIR
@@ -126,19 +127,34 @@ class MixtralSplitter(ClaimSplitter):
 class T5SplitRephraseSplitter(ClaimSplitter):
 
     def __init__(self):
-        checkpoint = "unikei/t5-base-split-and-rephrase"
-        self.tokenizer = T5Tokenizer.from_pretrained(checkpoint)
-        self.model = T5ForConditionalGeneration.from_pretrained(checkpoint)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model_name = "unikei/t5-base-split-and-rephrase"
+        self.tokenizer = T5Tokenizer.from_pretrained(self.model_name)
+        self.model = None
+
+    def load_model(self):
+        if self.model is None:
+            self.model = T5ForConditionalGeneration.from_pretrained(self.model_name).to(self.device)
+            self.model.eval()
+
+    def unload_model(self):
+        if self.model is not None:
+            del self.model
+            torch.cuda.empty_cache()
+            self.model = None
 
     def get_atomic_claims(self, text: str) -> Dict:
         return self.get_atomic_claims_batch([text])[0]
 
     def get_atomic_claims_batch(self, texts: List[str]) -> List[Dict]:
+        if not self.model:
+            self.load_model()
+
         complex_tokenized = self.tokenizer(texts,
                                            padding="longest",
                                            truncation=True,
                                            max_length=256,
-                                           return_tensors='pt')
+                                           return_tensors='pt').to(self.device)
 
         simple_tokenized = self.model.generate(complex_tokenized['input_ids'],
                                                attention_mask=complex_tokenized['attention_mask'],

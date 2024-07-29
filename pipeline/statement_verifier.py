@@ -59,12 +59,22 @@ class ModelStatementVerifier(StatementVerifier):
 
         :param model_name: Name of the model to use. Defaults to a pre-defined model.
         """
-        model_name = model_name or self.MODEL_NAME
+        self.model_name = model_name or self.MODEL_NAME
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model_raw = AutoModelForSequenceClassification.from_pretrained(model_name)
-        self.model = ClaimVerificationModel(model_raw).to(self.device)
-        self.model.eval()
+        self.model = None
+
+    def load_model(self):
+        if self.model is None:
+            model_raw = AutoModelForSequenceClassification.from_pretrained(self.model_name)
+            self.model = ClaimVerificationModel(model_raw).to(self.device)
+            self.model.eval()
+
+    def unload_model(self):
+        if self.model is not None:
+            del self.model
+            torch.cuda.empty_cache()
+            self.model = None
 
     def verify_statement(self, statement: Dict, evidence: List[str]):
         """
@@ -84,6 +94,9 @@ class ModelStatementVerifier(StatementVerifier):
         :param evids_batch: List of evidences corresponding to the statements.
         :return: List of verification results.
         """
+        if not self.model:
+            self.load_model()
+
         hypothesis_batch = [' '.join([sentence[2] for sentence in entry[::-1]]) for entry in evids_batch]
 
         predictions_batch = []

@@ -31,19 +31,9 @@ class ColonSentenceConnector(SentenceConnector):
 
 class PhiSentenceConnector(SentenceConnector):
     def __init__(self, model_name: str = "microsoft/Phi-3-mini-4k-instruct"):
+        self.model_name = model_name
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            torch_dtype="auto",
-            trust_remote_code=True,
-        )
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.pipe = pipeline(
-            "text-generation",
-            model=self.model,
-            tokenizer=self.tokenizer,
-            device=self.device
-        )
+        self.pipe = None
 
         self.generation_args = {
             "max_new_tokens": 500,
@@ -52,10 +42,35 @@ class PhiSentenceConnector(SentenceConnector):
             "do_sample": False,
         }
 
+    def load_model(self):
+        if self.pipe is None:
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                torch_dtype="auto",
+                trust_remote_code=True,
+            )
+            model.eval()
+            self.pipe = pipeline(
+                "text-generation",
+                model=model,
+                tokenizer=tokenizer,
+                device=self.device
+            )
+
+    def unload_model(self):
+        if self.pipe is not None:
+            del self.pipe
+            torch.cuda.empty_cache()
+            self.pipe = None
+
     def connect_word_text(self, word: str, text: str) -> str:
         return self.connect_batch([{'word': word, 'text': text}])[0]
 
     def connect_batch(self, batch: List[Dict]) -> List[str]:
+        if not self.pipe:
+            self.load_model()
+
         prompts = [self.get_prompt(entry['word'], entry['text']) for entry in batch]
         outputs = self.pipe(prompts, **self.generation_args)
 

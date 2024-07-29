@@ -28,16 +28,31 @@ class Translator(ABC):
 
 class OpusMTTranslator(Translator):
     def __init__(self, source_lang: str = 'de', dest_lang: str = 'en'):
-        model_name = f'Helsinki-NLP/opus-mt-{source_lang}-{dest_lang}'
+        self.model_name = f'Helsinki-NLP/opus-mt-{source_lang}-{dest_lang}'
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
-        self.model.to(self.device)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.model = None
+
+
+    def load_model(self):
+        if self.model is None:
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
+            self.model.to(self.device)
+            self.model.eval()
+
+    def unload_model(self):
+        if self.model is not None:
+            del self.model
+            torch.cuda.empty_cache()
+            self.model = None
 
     def translate_word_text(self, word: str, text: str):
         return self.translate_word_text_batch([{'word': word, 'text': text}])
 
     def translate_word_text_batch(self, batch: List[Dict]):
+        if not self.model:
+            self.load_model()
+
         connected_batch = [f"{entry.get('word')}: {entry.get('text')}" for entry in batch]
         batch_translations = self.translate_batch(connected_batch)
 

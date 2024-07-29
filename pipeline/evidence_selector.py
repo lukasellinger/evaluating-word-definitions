@@ -60,12 +60,23 @@ class ModelEvidenceSelector(EvidenceSelector):
 
         :param model_name: Name of the model to use. Defaults to a pre-defined model.
         """
-        model_name = model_name or self.MODEL_NAME
+        self.model_name = model_name or self.MODEL_NAME
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model_raw = AutoModel.from_pretrained(model_name, trust_remote_code=True, add_pooling_layer=False, safe_serialization=True)
-        self.model = EvidenceSelectionModel(model_raw).to(self.device)
-        self.model.eval()
+        self.model = None
+
+    def load_model(self):
+        if self.model is None:
+            model_raw = AutoModel.from_pretrained(self.model_name, trust_remote_code=True,
+                                                  add_pooling_layer=False, safe_serialization=True)
+            self.model = EvidenceSelectionModel(model_raw).to(self.device)
+            self.model.eval()
+
+    def unload_model(self):
+        if self.model is not None:
+            del self.model
+            torch.cuda.empty_cache()
+            self.model = None
 
     def select_evidences(self, claim: Dict, evidences: List[Tuple[str, str, str]]):
         """
@@ -87,6 +98,9 @@ class ModelEvidenceSelector(EvidenceSelector):
         :param top_k: Number of top sentences to select.
         :return: List of selected evidences for each claim.
         """
+        if not self.model:
+            self.load_model()
+
         ranked_evidence_batch = self._rank_evidences(batch, evidence_batch, max_evidence_count)
         top_sentences_batch = self._select_top_sentences(batch, ranked_evidence_batch, top_k)
         return top_sentences_batch

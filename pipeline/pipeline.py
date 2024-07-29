@@ -34,13 +34,7 @@ class Pipeline:
         self.stm_verifier = stm_verifier
         self.lang = lang
 
-    def update_models(self, evidence_selector=None, statement_verifier=None):
-        if evidence_selector:
-            self.evidence_selector = evidence_selector
-        if statement_verifier:
-            self.statement_verifier = statement_verifier
-
-    def verify_batch(self, batch: List[Dict]):
+    def verify_batch(self, batch: List[Dict], only_intro: bool = True):
         """
         Verify a batch of claims.
 
@@ -57,7 +51,7 @@ class Pipeline:
             translation_batch = processed_batch
             evid_fetcher_input = [{**b, 'translated_word': b.get('word')} for b in batch]
 
-        evid_words, evids = self.evid_fetcher(evid_fetcher_input)
+        evid_words, evids = self.evid_fetcher(evid_fetcher_input, word_lang=self.lang, only_intro=only_intro)
 
         outputs = []
         filtered_batch = []
@@ -93,7 +87,7 @@ class Pipeline:
                             'selected_evidences': evidence})
         return outputs
 
-    def verify(self, word: str, claim: str, search_word: Optional[str] = None):
+    def verify(self, word: str, claim: str, search_word: Optional[str] = None, only_intro: bool = True):
         """
         Verify a single claim.
 
@@ -105,9 +99,9 @@ class Pipeline:
         entry = {'word': word, 'text': claim}
         if search_word:
             entry['search_word'] = search_word
-        return self.verify_batch([entry])
+        return self.verify_batch([entry], only_intro=only_intro)
 
-    def verify_test_batch(self, batch: List[Dict]):
+    def verify_test_batch(self, batch: List[Dict], only_intro: bool = True):
         """
         Verify a test batch of claims.
 
@@ -133,7 +127,7 @@ class Pipeline:
                                'search_word': entry['document_search_word']} for entry in
                               filtered_batch]
 
-        _, evids = self.evid_fetcher(evid_fetcher_input)
+        _, evids = self.evid_fetcher(evid_fetcher_input, word_lang=self.lang, only_intro=only_intro)
 
         if not filtered_batch:
             return outputs
@@ -157,12 +151,19 @@ class Pipeline:
                             'connected_claim': entry.get('connected_claim'),
                             'label': entry.get('label'),
                             **factuality,
-                            'selected_evidences': evidence})
+                            'evidence': evidence
+                            })
         return outputs
 
-    def verify_test_dataset(self, dataset, batch_size: int = 4, output_file: str = ''):
+    def _prep_evidence_output(self, evidence):
+        max_intro_sent_indices = self.evid_fetcher.mark_summary_sents_test_batch()
+        for entry in evidence:
+            entry['in_intro'] = entry.get('line_idx') <= max_intro_sent_indices.get(entry.get('title'), -1)
+        return evidence
+
+    def verify_test_dataset(self, dataset, batch_size: int = 4, output_file: str = '', only_intro: bool = True):
         """
-        Verify a test dataset. (Currently not implemented)
+        Verify a test dataset.
 
         :param dataset: Dataset to verify.
         """
@@ -172,7 +173,7 @@ class Pipeline:
         not_in_wiki = 0
         for i in tqdm(range(0, len(dataset), batch_size)):
             batch = dataset[i:i + batch_size]
-            output = self.verify_test_batch(batch)
+            output = self.verify_test_batch(batch, only_intro=only_intro)
 
             for entry in output:
                 if entry['predicted'] != -1:
@@ -187,6 +188,19 @@ class Pipeline:
 
         return outputs, classification_report(gt_labels, pr_labels, zero_division=0,
                                               digits=4), not_in_wiki
+
+    def mark_summary_sents_test_batch(self, batch):
+        evids_batch = [{'word': entry.get('word'),
+                        'translated_word': entry.get('english_word', entry.get('word')),
+                        'search_word': entry['document_search_word']} for entry in batch]
+
+        _, intro_evids_batch = self.evid_fetcher(evids_batch, word_lang=self.lang, only_intro=True)
+        max_summary_line_numbers = {
+            doc[0]: max(map(int, doc[1]))
+            for intro_evid in intro_evids_batch
+            for doc in intro_evid
+        }
+        return max_summary_line_numbers
 
 
 if __name__ == "__main__":
