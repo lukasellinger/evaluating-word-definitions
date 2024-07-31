@@ -108,7 +108,7 @@ def build_fever_instance(label, evidence, evidence_doc, predicted_label, predict
     predicted_evidence = [[page, int(line)] for page, line in predicted_evidence]
 
     instance = {'label': label,
-                'predicted_label': predicted_label.name,
+                'predicted_label': predicted_label,
                 'predicted_evidence': predicted_evidence,
                 'evidence': evidence}
     return instance
@@ -301,5 +301,13 @@ def print_classification_report(report, not_in_wiki, avg_claim_count):
     print('################################')
     print(f'Not in wikipedia: {not_in_wiki}')
     print(f'Avg claim count: {avg_claim_count}')
+    print(report)
+    print('################################')
+
+
+def print_fever_classification_report(report, fever_report):
+    print('################################')
+    print(f'FeverScore: {fever_report.get("strict_score")}')
+    print(f'Gold FeverScore: {fever_report.get("gold_score")}')
     print(report)
     print('################################')

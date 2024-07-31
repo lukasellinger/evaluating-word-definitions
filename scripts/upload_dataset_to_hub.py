@@ -2,19 +2,19 @@ from datasets import Dataset, DatasetDict
 
 from config import DB_URL, HF_WRITE_TOKEN
 
-# dataset_query0 = """
-# with unique_claims as (
-# select distinct dd.id, dd.claim, dd.short_claim, dd.label, dd.evidence_wiki_url, dd.set_type
-# from def_dataset dd)
-# select uq.id, uq.claim as claim, uq.short_claim, uq.label, docs.document_id, docs.text,
-#        docs.lines, se.evidence_lines as evidence_lines, GROUP_CONCAT(af.fact, '--;--') as atomic_facts
-# from unique_claims as uq
-#     join selected_evidence se on uq.id = se.claim_id
-#     join documents docs on docs.document_id = uq.evidence_wiki_url
-#     left join atomic_facts_fever_short_dissim af on af.claim_id = uq.id
-# where uq.set_type = 'dev' --uq.set_type = '{set_type}' and 51=51--'{set_type}' and 10=10
-# group by uq.id, docs.document_id
-# """
+dataset_query0 = """
+with unique_claims as (
+select distinct dd.id, dd.claim, dd.short_claim, dd.label, dd.evidence_wiki_url, dd.set_type
+from def_dataset dd)
+select uq.id, uq.claim as claim, uq.short_claim, uq.label, docs.document_id, docs.text,
+        docs.lines, se.evidence_lines as evidence_lines
+from unique_claims as uq
+     join selected_evidence se on uq.id = se.claim_id
+     join documents docs on docs.document_id = uq.evidence_wiki_url
+where uq.set_type = '{set_type}' and 10=10--uq.set_type = '{set_type}' and 51=51--'{set_type}' and 10=10
+group by uq.id, docs.document_id
+"""
+
 #
 # dataset_query = """
 # WITH unique_claims AS (

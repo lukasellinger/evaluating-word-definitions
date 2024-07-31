@@ -5,8 +5,10 @@ from datasets import load_dataset
 from sklearn.metrics import classification_report
 from tqdm import tqdm
 
-from dataset.def_dataset import Fact
+from dataset.def_dataset import Fact, process_lines, split_text
+from general_utils.fever_scorer import fever_score
 from general_utils.reader import JSONLineReader
+from general_utils.utils import process_sentence_wiki, build_fever_instance
 from pipeline_module.claim_splitter import ClaimSplitter, DisSimSplitter
 from pipeline_module.evidence_fetcher import EvidenceFetcher, WikipediaEvidenceFetcher
 from pipeline_module.evidence_selector import EvidenceSelector, ModelEvidenceSelector
@@ -210,26 +212,116 @@ class Pipeline:
         return max_summary_line_numbers
 
 
+class FeverPipeline:
+    def __init__(self,
+                 claim_splitter: Optional[ClaimSplitter],
+                 evid_selector: EvidenceSelector,
+                 stm_verifier: StatementVerifier):
+        self.claim_splitter = claim_splitter
+        self.evid_selector = evid_selector
+        self.stm_verifier = stm_verifier
+
+    def verify_test_batch(self, batch: List[Dict]):
+        """
+        Verify a test batch of claims.
+
+        :param batch: List of dictionaries containing claims.
+        :return: Evidences for the batch.
+        """
+        evids = []
+        for entry in batch:
+            lines = process_lines(entry['lines'])
+            processed_lines = []
+            line_numbers = []
+            for line in lines.split('\n'):
+                line = process_sentence_wiki(line)
+                line_number, text = split_text(line)
+                processed_lines.append(text)
+                line_numbers.append(line_number)
+            evids.append([{'title': entry['document_id'],
+                           'line_indices': line_numbers,
+                           'lines': processed_lines}])
+
+        if self.claim_splitter:
+            split_type = type(self.claim_splitter).__name__.split('Splitter')[0]
+            processed_batch = [{'splits': entry[f'{split_type}_facts']} for entry in batch]
+        else:
+            processed_batch = [{'text': entry['claim']} for entry in batch]
+
+        evids_batch = self.evid_selector(processed_batch, evids)
+        factualities = self.stm_verifier(processed_batch, evids_batch)
+
+        outputs, fever_instances = [], []
+        for factuality, evidence, entry in zip(factualities, evids_batch, batch):
+            outputs.append({'id': entry.get('id'),
+                            'word': entry.get('document_id'),
+                            'claim': entry.get('claim'),
+                            'connected_claim': entry.get('connected_claim'),
+                            'label': entry.get('label'),
+                            **factuality,
+                            'evidence': evidence
+                            })
+            fever_instances.append(build_fever_instance(entry.get('label'),
+                                                        entry['evidence_lines'].split(';'),
+                                                        entry['document_id'],
+                                                        factuality.get('predicted'),
+                                                        [(line.get('title'), line.get('line_idx'))
+                                                         for line in evidence]))
+        return outputs, fever_instances
+
+    def verify_test_dataset(self, dataset, batch_size: int = 4, output_file: str = ''):
+        """
+        Verify a test dataset.
+
+        :param dataset: Dataset to verify.
+        """
+        dataset = dataset.to_list()
+
+        outputs, gt_labels, pr_labels, fever_instances = [], [], [], []
+        for i in tqdm(range(0, len(dataset), batch_size)):
+            batch = dataset[i:i + batch_size]
+            output, fever_instance = self.verify_test_batch(batch)
+
+            for entry in output:
+                assert entry['predicted'] != -1, 'prediction == -1 can not happen for FeverPipeline'
+
+                gt_labels.append(Fact[entry['label']].to_factuality())
+                pr_labels.append(Fact[entry['predicted']].to_factuality())
+            fever_instances.extend(fever_instance)
+            outputs.extend(output)
+        if output_file:
+            JSONLineReader().write(output_file, outputs)
+
+        fever_report = {'strict_score': fever_score(fever_instances)[0],
+                        'gold_score': fever_score(fever_instances, use_gold_labels=True)[0]}
+        return outputs, classification_report(gt_labels, pr_labels, zero_division=0, digits=4), fever_report
+
+
 if __name__ == "__main__":
-    translator = OpusMTTranslator()
-    sent_connector = ColonSentenceConnector()
-    claim_splitter = None  # DisSimSplitter()
-    evid_fetcher = WikipediaEvidenceFetcher()
+    #translator = OpusMTTranslator()
+    #sent_connector = ColonSentenceConnector()
+    #claim_splitter = None  # DisSimSplitter()
+    #evid_fetcher = WikipediaEvidenceFetcher()
     evid_selector = ModelEvidenceSelector()
     stm_verifier = ModelStatementVerifier(
         model_name='MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7')
-    lang = 'de'
+    #lang = 'de'
 
-    pipeline = Pipeline(translator, sent_connector, claim_splitter, evid_fetcher, evid_selector,
-                        stm_verifier, lang)
-    result = pipeline.verify_batch([{'word': 'ERTU',
-                                     'text': 'die staatliche Rundfunkgesellschaft Ägyptens',
-                                     'search_word': 'ertu'},
-                                    {'word': 'Kindergewerkschaft',
-                                     'text': 'I like to swim and dance',
-                                     'search_word': "children's union"}])
-    print(result)
-    #result = pipeline.verify_batch([{'word': 'ERTU', 'text': 'die staatliche Rundfunkgesellschaft Ägyptens', 'search_word': 'ertu'}])
-    #print(result)
-    dataset = load_dataset('lukasellinger/german_dpr-claim_verification', split='test')
-    pipeline.verify_test_dataset(dataset, 4)
+    raw_dataset = load_dataset("lukasellinger/fever_evidence_selection-v1").get('dev')
+    fever_pipeline = FeverPipeline(claim_splitter=None,
+                                   evid_selector=evid_selector,
+                                   stm_verifier=stm_verifier)
+    fever_pipeline.verify_test_dataset(raw_dataset)
+    # pipeline = Pipeline(translator, sent_connector, claim_splitter, evid_fetcher, evid_selector,
+    #                     stm_verifier, lang)
+    # result = pipeline.verify_batch([{'word': 'ERTU',
+    #                                  'text': 'die staatliche Rundfunkgesellschaft Ägyptens',
+    #                                  'search_word': 'ertu'},
+    #                                 {'word': 'Kindergewerkschaft',
+    #                                  'text': 'I like to swim and dance',
+    #                                  'search_word': "children's union"}])
+    # print(result)
+    # #result = pipeline.verify_batch([{'word': 'ERTU', 'text': 'die staatliche Rundfunkgesellschaft Ägyptens', 'search_word': 'ertu'}])
+    # #print(result)
+    # dataset = load_dataset('lukasellinger/german_dpr-claim_verification', split='test')
+    # pipeline.verify_test_dataset(dataset, 4)

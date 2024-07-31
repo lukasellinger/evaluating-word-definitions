@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 
 from fetchers.wikipedia import Wikipedia
 
@@ -21,8 +21,9 @@ class EvidenceFetcher(ABC):
         return self.fetch_evidences_batch(batch, only_intro, word_lang)
 
     @abstractmethod
-    def fetch_evidences(self, word: str, translated_word: str, only_intro: bool = True,
-                        word_lang: str = 'de'):
+    def fetch_evidences(self, word: Optional[str] = None, translated_word: Optional[str] = None, search_word: Optional[str] = None, only_intro: bool = True,
+                        word_lang: str = 'de') -> Tuple[
+        str, List[Tuple[str, List[str], List[str]]]]:
         """
         Fetch evidences for a single word.
 
@@ -74,7 +75,7 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
         self.wiki = Wikipedia(use_dataset=self.OFFLINE_WIKI) if offline else Wikipedia(
             source_lang=source_lang)
 
-    def fetch_evidences(self, word: str, translated_word: str, only_intro: bool = True,
+    def fetch_evidences(self, word: Optional[str] = None, translated_word: Optional[str] = None, search_word: Optional[str] = None, only_intro: bool = True,
                         word_lang: str = 'de') -> Tuple[
         str, List[Tuple[str, List[str], List[str]]]]:
         """
@@ -86,8 +87,9 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
         :param word_lang: Language code for the word.
         :return: Tuple containing the word and its evidence.
         """
+
         evid_words, evids = self.fetch_evidences_batch(
-            [{'word': word, 'translated_word': translated_word}],
+            [{'word': word, 'translated_word': translated_word, 'search_word': search_word}],
             only_intro=only_intro, word_lang=word_lang
         )
         return evid_words[0], evids[0]
@@ -132,6 +134,7 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
 
     def get_max_intro_sent_idx(self):
         return self.wiki.get_offline_max_intro_sent_idx() if self.offline else {}
+
 
 
 if __name__ == "__main__":
