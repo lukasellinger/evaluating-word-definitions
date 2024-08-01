@@ -170,7 +170,7 @@ class Pipeline:
                 entry.get('title'), -1)
         return evidence
 
-    def verify_test_dataset(self, dataset, batch_size: int = 4, output_file: str = '',
+    def verify_test_dataset(self, dataset, batch_size: int = 4, output_file_name: str = '',
                             only_intro: bool = True):
         """
         Verify a test dataset.
@@ -193,8 +193,8 @@ class Pipeline:
                     not_in_wiki += 1
 
             outputs.extend(output)
-        if output_file:
-            JSONLineReader().write(output_file, outputs)
+        if output_file_name:
+            JSONLineReader().write(f'{output_file_name}.jsonl', outputs)
 
         return outputs, classification_report(gt_labels, pr_labels, zero_division=0,
                                               digits=4), not_in_wiki
@@ -271,7 +271,7 @@ class FeverPipeline:
                                                          for line in evidence]))
         return outputs, fever_instances
 
-    def verify_test_dataset(self, dataset, batch_size: int = 4, output_file: str = ''):
+    def verify_test_dataset(self, dataset, batch_size: int = 4, output_file_name: str = ''):
         """
         Verify a test dataset.
 
@@ -291,8 +291,8 @@ class FeverPipeline:
                 pr_labels.append(Fact[entry['predicted']].to_factuality())
             fever_instances.extend(fever_instance)
             outputs.extend(output)
-        if output_file:
-            JSONLineReader().write(output_file, outputs)
+        if output_file_name:
+            JSONLineReader().write(f'{output_file_name}.jsonl', outputs)
 
         fever_report = {'strict_score': fever_score(fever_instances)[0],
                         'gold_score': fever_score(fever_instances, use_gold_labels=True)[0]}
