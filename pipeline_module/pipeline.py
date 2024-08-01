@@ -138,7 +138,8 @@ class Pipeline:
 
         if self.claim_splitter:
             split_type = type(self.claim_splitter).__name__.split('Splitter')[0]
-            processed_batch = [{'splits': entry[f'{split_type}_facts']} for entry in filtered_batch]
+            processed_batch = [{'text': entry.get('english_claim', entry['claim']),
+                                'splits': entry[f'{split_type}_facts'].split('--;--')} for entry in filtered_batch]
         else:
             if isinstance(self.sent_connector, ColonSentenceConnector):
                 processed_batch = self.sent_connector([{'word': entry['document_search_word'],
@@ -244,7 +245,8 @@ class FeverPipeline:
 
         if self.claim_splitter:
             split_type = type(self.claim_splitter).__name__.split('Splitter')[0]
-            processed_batch = [{'splits': entry[f'{split_type}_facts']} for entry in batch]
+            processed_batch = [{'text': entry['claim'],
+                                'splits': entry[f'{split_type}_facts'].split('--;--')} for entry in batch]
         else:
             processed_batch = [{'text': entry['claim']} for entry in batch]
 
