@@ -105,7 +105,7 @@ class Pipeline:
             entry['search_word'] = search_word
         return self.verify_batch([entry], only_intro=only_intro)
 
-    def verify_test_batch(self, batch: List[Dict], only_intro: bool = True):
+    def verify_test_batch(self, batch: List[Dict], only_intro: bool = True, max_evidence_count: int = 3, top_k: int = 3):
         """
         Verify a test batch of claims.
 
@@ -149,7 +149,7 @@ class Pipeline:
             else:
                 processed_batch = [{'text': entry['connected_claim']} for entry in filtered_batch]
 
-        evids_batch = self.evid_selector(processed_batch, evids)
+        evids_batch = self.evid_selector(processed_batch, evids, max_evidence_count, top_k)
         factualities = self.stm_verifier(processed_batch, evids_batch)
 
         for factuality, evidence, entry in zip(factualities, evids_batch, filtered_batch):
@@ -171,7 +171,7 @@ class Pipeline:
         return evidence
 
     def verify_test_dataset(self, dataset, batch_size: int = 4, output_file_name: str = '',
-                            only_intro: bool = True):
+                            only_intro: bool = True, max_evidence_count: int = 3, top_k: int = 3):
         """
         Verify a test dataset.
 
@@ -183,7 +183,7 @@ class Pipeline:
         not_in_wiki = 0
         for i in tqdm(range(0, len(dataset), batch_size)):
             batch = dataset[i:i + batch_size]
-            output = self.verify_test_batch(batch, only_intro=only_intro)
+            output = self.verify_test_batch(batch, only_intro=only_intro, max_evidence_count= 3, top_k=3)
 
             for entry in output:
                 if entry['predicted'] != -1:

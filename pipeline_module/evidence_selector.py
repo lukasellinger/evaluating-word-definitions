@@ -14,7 +14,7 @@ class EvidenceSelector(ABC):
     Abstract base class for selecting evidences.
     """
 
-    def __call__(self, batch: List[Dict], evidence_batch: List[List[Dict]]):
+    def __call__(self, batch: List[Dict], evidence_batch: List[List[Dict]], max_evidence_count: int = 3, top_k: int = 3):
         """
         Select evidences for a batch of claims.
 
@@ -22,7 +22,7 @@ class EvidenceSelector(ABC):
         :param evidence_batch: List of evidence lists corresponding to each claim.
         :return: List of selected evidences for each claim.
         """
-        return self.select_evidences_batch(batch, evidence_batch)
+        return self.select_evidences_batch(batch, evidence_batch, max_evidence_count, top_k)
 
     @abstractmethod
     def select_evidences(self, claim: Dict, evidences: List[Dict]):
@@ -36,7 +36,7 @@ class EvidenceSelector(ABC):
         pass
 
     @abstractmethod
-    def select_evidences_batch(self, batch: List[Dict], evidence_batch: List[List[Dict]]):
+    def select_evidences_batch(self, batch: List[Dict], evidence_batch: List[List[Dict]], max_evidence_count: int = 3, top_k: int = 3):
         """
         Select evidences for a batch of claims.
 
@@ -62,13 +62,13 @@ class ModelEvidenceSelector(EvidenceSelector):
         """
         self.model_name = model_name or self.MODEL_NAME
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, force_download=True)
         self.model = None
 
     def load_model(self):
         if self.model is None:
             model_raw = AutoModel.from_pretrained(self.model_name, trust_remote_code=True,
-                                                  add_pooling_layer=False, safe_serialization=True)
+                                                  add_pooling_layer=False, safe_serialization=True, force_download=True)
             self.model = EvidenceSelectionModel(model_raw).to(self.device)
             self.model.eval()
 
