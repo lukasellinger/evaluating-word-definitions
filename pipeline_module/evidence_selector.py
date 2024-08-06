@@ -62,13 +62,13 @@ class ModelEvidenceSelector(EvidenceSelector):
         """
         self.model_name = model_name or self.MODEL_NAME
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, force_download=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = None
 
     def load_model(self):
         if self.model is None:
             model_raw = AutoModel.from_pretrained(self.model_name, trust_remote_code=True,
-                                                  add_pooling_layer=False, safe_serialization=True, force_download=True)
+                                                  add_pooling_layer=False, safe_serialization=True)
             self.model = EvidenceSelectionModel(model_raw).to(self.device)
             self.model.eval()
 
@@ -121,7 +121,6 @@ class ModelEvidenceSelector(EvidenceSelector):
             statement_model_input = self.tokenizer(claim['text'], return_tensors='pt').to(self.device)
             with torch.no_grad():
                 statement_embeddings = self.model(**statement_model_input)
-
             sentence_similarities = []
             for entry in evidences:
                 sentence_similarities.extend(self._compute_sentence_similarities(entry['title'], entry['line_indices'], entry['lines'], statement_embeddings))

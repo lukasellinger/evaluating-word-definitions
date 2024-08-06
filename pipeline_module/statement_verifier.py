@@ -61,12 +61,12 @@ class ModelStatementVerifier(StatementVerifier):
         """
         self.model_name = model_name or self.MODEL_NAME
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, force_download=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = None
 
     def load_model(self):
         if self.model is None:
-            model_raw = AutoModelForSequenceClassification.from_pretrained(self.model_name, force_download=True)
+            model_raw = AutoModelForSequenceClassification.from_pretrained(self.model_name)
             self.model = ClaimVerificationModel(model_raw).to(self.device)
             self.model.eval()
 

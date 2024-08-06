@@ -66,7 +66,8 @@ class Pipeline:
                 outputs.append(
                     {'word': entry.get('word'),
                      'claim': entry.get('text'),
-                     'predicted': -1})
+                     'predicted': -1,
+                     'in_wiki': 'No'})
             else:
                 filtered_batch.append(entry)
                 filtered_evids.append(evid)
@@ -87,7 +88,8 @@ class Pipeline:
             outputs.append({'word': entry.get('word'),
                             'claim': entry.get('text'),
                             **factuality,
-                            'selected_evidences': evidence})
+                            'selected_evidences': evidence,
+                            'in_wiki': 'Yes'})
         return outputs
 
     def verify(self, word: str, claim: str, search_word: Optional[str] = None,
@@ -104,6 +106,54 @@ class Pipeline:
         if search_word:
             entry['search_word'] = search_word
         return self.verify_batch([entry], only_intro=only_intro)
+
+    def verify_test_select(self, batch: List[Dict], only_intro: bool = True, max_evidence_count: int = 3, top_k: int = 3):
+        """
+        Verify a test batch of claims.
+
+        :param batch: List of dictionaries containing claims.
+        :return: Evidences for the batch.
+        """
+        filtered_batch = []
+        outputs = []
+        for entry in batch:
+            if entry['in_wiki'] == 'No':
+                outputs.append(
+                    {'id': entry.get('id'),
+                     'word': entry.get('word'),
+                     'claim': entry.get('claim'),
+                     'connected_claim': entry.get('connected_claim'),
+                     'label': entry.get('label'),
+                     'predicted': -1}
+                )
+            else:
+                filtered_batch.append(entry)
+
+        evid_fetcher_input = [{'word': entry['word'],
+                               'translated_word': entry.get('english_word', entry['word']),
+                               'search_word': entry['document_search_word']} for entry in
+                              filtered_batch]
+
+        _, evids = self.evid_fetcher(evid_fetcher_input, word_lang=self.lang, only_intro=only_intro)
+
+        if not filtered_batch:
+            return outputs
+
+        if self.claim_splitter:
+            split_type = type(self.claim_splitter).__name__.split('Splitter')[0]
+            processed_batch = [{'text': entry.get('english_claim', entry['claim']),
+                                'splits': entry[f'{split_type}_facts'].split('--;--')} for entry in filtered_batch]
+        else:
+            if isinstance(self.sent_connector, ColonSentenceConnector):
+                processed_batch = self.sent_connector([{'word': entry['document_search_word'],
+                                                        'text': entry.get('english_claim',
+                                                                          entry['claim'])} for entry
+                                                       in filtered_batch])
+            else:
+                processed_batch = [{'text': entry['connected_claim']} for entry in filtered_batch]
+
+        evids_batch = self.evid_selector(processed_batch, evids, max_evidence_count, top_k)
+        return evids_batch
 
     def verify_test_batch(self, batch: List[Dict], only_intro: bool = True, max_evidence_count: int = 3, top_k: int = 3):
         """
@@ -122,7 +172,9 @@ class Pipeline:
                      'claim': entry.get('claim'),
                      'connected_claim': entry.get('connected_claim'),
                      'label': entry.get('label'),
-                     'predicted': -1})
+                     'predicted': -1,
+                     'in_wiki': 'No'
+                     })
             else:
                 filtered_batch.append(entry)
 
@@ -159,7 +211,8 @@ class Pipeline:
                             'connected_claim': entry.get('connected_claim'),
                             'label': entry.get('label'),
                             **factuality,
-                            'evidence': self._prep_evidence_output(evidence)
+                            'evidence': self._prep_evidence_output(evidence),
+                            'in_wiki': 'Yes'
                             })
         return outputs
 
@@ -183,7 +236,7 @@ class Pipeline:
         not_in_wiki = 0
         for i in tqdm(range(0, len(dataset), batch_size)):
             batch = dataset[i:i + batch_size]
-            output = self.verify_test_batch(batch, only_intro=only_intro, max_evidence_count= 3, top_k=3)
+            output = self.verify_test_batch(batch, only_intro=only_intro, max_evidence_count=max_evidence_count, top_k=top_k)
 
             for entry in output:
                 if entry['predicted'] != -1:
@@ -300,10 +353,6 @@ class FeverPipeline:
 
 
 if __name__ == "__main__":
-    #translator = OpusMTTranslator()
-    #sent_connector = ColonSentenceConnector()
-    #claim_splitter = None  # DisSimSplitter()
-    #evid_fetcher = WikipediaEvidenceFetcher()
     evid_selector = ModelEvidenceSelector()
     stm_verifier = ModelStatementVerifier(
         model_name='MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7')
