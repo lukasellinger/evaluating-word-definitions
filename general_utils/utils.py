@@ -257,17 +257,17 @@ def parse_model_answer(generated_answer: str):
 
 
 def get_openai_prediction(response):
-    log_probs = response.choices[0].logprobs.content[0].top_logprobs
-    sorted_logprobs = sorted(log_probs, key=lambda x: x.logprob)  # sort ASC
+    log_probs = response.get('choices', [])[0].get('logprobs', {}).get('content', [])[0].get('top_logprobs', [])
+    sorted_logprobs = sorted(log_probs, key=lambda x: x.get('logprob'))  # sort ASC
 
     true_logprob = -np.inf
     false_logprob = -np.inf
     for log_prob in sorted_logprobs:
-        token = log_prob.token.lower().strip()
+        token = log_prob.get('token').lower().strip()
         if token == 'true':
-            true_logprob = log_prob.logprob
+            true_logprob = log_prob.get('logprob')
         elif token == 'false':
-            false_logprob = log_prob.logprob
+            false_logprob = log_prob.get('logprob')
 
     if true_logprob != -np.inf or false_logprob != -np.inf:
         return 'SUPPORTED' if true_logprob > false_logprob else 'NOT_SUPPORTED'

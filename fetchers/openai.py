@@ -26,18 +26,17 @@ class OpenAiFetcher:
         )
         return batch_job
 
-    def get_batch_result(self, identification, batch_job):
+    def get_batch_result(self, output_file, batch_job):
         result_file_id = batch_job.output_file_id
         if not result_file_id:
             return None
 
         result = self.client.files.content(result_file_id).content
-        result_file_name = f"batch_{identification}_results.jsonl"
 
-        with open(result_file_name, 'wb') as file:
+        with open(output_file, 'wb') as file:
             file.write(result)
 
-        return result_file_name
+        return output_file
 
     def get_batch_update(self, batch_job):
         return self.client.batches.retrieve(batch_job.id)

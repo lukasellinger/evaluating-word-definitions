@@ -17,3 +17,4 @@ odenet~=0.1.0
 einops~=0.8.0
 safetensors~=0.4.3
 openai~=1.35.10
+wandb~=0.17.5

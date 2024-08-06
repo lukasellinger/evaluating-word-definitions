@@ -1,5 +1,6 @@
 """Module for reading files."""
 import json
+import os
 
 
 class Reader:
@@ -15,6 +16,10 @@ class Reader:
 
     def write(self, file, lines, mode='a'):
         """Write lines to file."""
+        dir_path = os.path.dirname(file)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+
         with open(file, mode, encoding=self.enc) as f:
             self._write(f, lines)
 
