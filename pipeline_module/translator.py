@@ -82,7 +82,7 @@ class OpusMTTranslator(Translator):
             for word, translated_word, translated_text in zip(words, translated_words,
                                                               translated_texts):
                 translated_batch.insert(word_index.index(word),
-                                        {'word': translated_word, 'text': translated_text})
+                                        {'word': translated_word[0], 'text': translated_text[0]})
 
         return translated_batch
 
@@ -115,6 +115,3 @@ if __name__ == "__main__":
         {'word': 'Apfel', 'text': 'Ich mag gerne Essen.'},
         {'word': 'Banane', 'text': 'Ich mag gerne Kiwi.'}
     ]))
-
-    print(translator.translate_word_text(word='Apfel', text='Banane'))
-    print(translator.translate_text(text='Hallo wie gehts'))
