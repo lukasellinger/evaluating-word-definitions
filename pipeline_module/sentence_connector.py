@@ -30,10 +30,11 @@ class ColonSentenceConnector(SentenceConnector):
 
 
 class PhiSentenceConnector(SentenceConnector):
-    def __init__(self, model_name: str = "microsoft/Phi-3-mini-4k-instruct"):
+    def __init__(self, model_name: str = "microsoft/Phi-3-mini-4k-instruct", use_flash_attn: bool = False):
         self.model_name = model_name
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.pipe = None
+        self.use_flash_attn = use_flash_attn
 
         self.generation_args = {
             "max_new_tokens": 500,
@@ -45,10 +46,12 @@ class PhiSentenceConnector(SentenceConnector):
     def load_model(self):
         if self.pipe is None:
             tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            attn_impl = "flash_attention_2" if self.use_flash_attn else None
             model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
                 torch_dtype="auto",
                 trust_remote_code=True,
+                attn_implementation=attn_impl
             )
             model.eval()
             self.pipe = pipeline(
