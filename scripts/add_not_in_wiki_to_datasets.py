@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from datasets import load_dataset
+from datasets import load_dataset, DatasetDict
 from tqdm import tqdm
 
 from config import HF_WRITE_TOKEN
@@ -8,7 +8,7 @@ from fetchers.wikipedia import Wikipedia
 
 
 def main(dataset_name, wiki):
-    dataset = load_dataset(dataset_name).get('train')
+    dataset = load_dataset(dataset_name).get('test')
 
     not_in_wiki = defaultdict(int)
     in_wiki_col = []
@@ -28,15 +28,17 @@ def main(dataset_name, wiki):
             in_wiki_col.append('Yes')
             not_in_wiki['Yes'] += 1
     dataset = dataset.add_column('in_wiki', in_wiki_col)
-    dataset.push_to_hub(dataset_name, private=True, token=HF_WRITE_TOKEN)
+
+    data_dict = DatasetDict()
+    data_dict['test'] = dataset
+    data_dict.push_to_hub(dataset_name, token=HF_WRITE_TOKEN)
     return not_in_wiki
 
 
 if __name__ == "__main__":
-    dataset_names = ["lukasellinger/german_dpr_claim_verification_dissim-v1",
-                     "lukasellinger/german_claim_verification_dissim-v1",
-                     "lukasellinger/squad_claim_verification_dissim-v1"]
-    offline_wiki = 'lukasellinger/wiki_dump_2024-07-08'
+    dataset_names = ["lukasellinger/german_wiktionary-claim_verification-large",
+                     "lukasellinger/german_wiktionary-claim_verification-mini"]
+    offline_wiki = 'lukasellinger/wiki_dump_2024-08-14'
     wiki = Wikipedia(use_dataset=offline_wiki)
     for dataset_name in dataset_names:
         stats = main(dataset_name, wiki)

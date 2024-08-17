@@ -95,7 +95,7 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
         return evid_words[0], evids[0]
 
     def fetch_evidences_batch(self, batch: List[Dict], only_intro: bool = True,
-                              word_lang: str = 'de', offline: bool = True) -> Tuple[
+                              word_lang: str = 'de') -> Tuple[
         List[str], List[List[Tuple[str, List[str], List[str]]]]]:
         """
         Fetch evidences for a batch of words.
@@ -106,7 +106,7 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
         :return: Tuple of lists: evidence words and evidence details.
         """
         # Validate batch contents based on mode (offline or online)
-        required_keys = ['search_word'] if offline else ['word', 'translated_word']
+        required_keys = ['search_word'] if self.offline else ['word', 'translated_word']
         for key in required_keys:
             assert all(key in entry for entry in batch), f'Key {key} missing in batch entries'
 

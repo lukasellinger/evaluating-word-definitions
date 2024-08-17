@@ -1,0 +1,56 @@
+/* styles.css */
+
+.table-row-clickable {
+    cursor: pointer;
+}
+
+.table-row-clickable:hover {
+    background-color: #e9f5ff !important; /* Light blue background on hover */
+}
+
+.spinner-border {
+    display: none;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-width: .2em;
+}
+
+.spinner-border.show {
+    display: inline-block;
+}
+
+#result {
+    font-weight: bold;
+}
+
+.header {
+    margin-bottom: 2rem;
+}
+
+.progress {
+    height: 1rem;
+}
+
+.progress-bar {
+    transition: width 0.5s ease-in-out;
+}
+
+#pipeline-spinner {
+    margin-left: 10px; /* Adjust this value to fine-tune spacing between button and spinner */
+}
+
+#result-container {
+    display: flex;
+    align-items: center;
+}
+
+.spinner-border {
+    display: none;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-width: .2em;
+}
+
+.spinner-border.show {
+    display: inline-block;
+}

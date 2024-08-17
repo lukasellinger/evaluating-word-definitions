@@ -1,66 +1,37 @@
 from datasets import load_dataset
 from tqdm import tqdm
 
+from config import HF_WRITE_TOKEN
 from pipeline_module.evidence_fetcher import WikipediaEvidenceFetcher
-from pipeline_module.evidence_selector import ModelEvidenceSelector
 from pipeline_module.pipeline import Pipeline
-from pipeline_module.sentence_connector import PhiSentenceConnector
-from pipeline_module.translator import OpusMTTranslator
 
-import torch
-import numpy as np
-import random
-import os
+dataset_name = 'lukasellinger/wiki_dump_2024-08-14'
+dataset = load_dataset(dataset_name).get('train')
 
-os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+df = dataset.to_pandas()
+unique_search_words = df['search_word'].unique()
 
-seed = 42
-torch.manual_seed(seed)
-np.random.seed(seed)
-random.seed(seed)
+fetcher = WikipediaEvidenceFetcher()
+pipeline = Pipeline(translator=None,
+                    sent_connector=None,
+                    claim_splitter=None,
+                    evid_fetcher=fetcher,
+                    evid_selector=None,
+                    stm_verifier=None,
+                    lang=None)
 
-torch.use_deterministic_algorithms(True)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
-
-finetuned_selection_model = 'lukasellinger/evidence_selection_model-v3'
-base_model = 'Snowflake/snowflake-arctic-embed-m-long'
-model = ModelEvidenceSelector(model_name=finetuned_selection_model)
-
-translator = OpusMTTranslator()
-
-# Sentence Connectors
-phi_sentence_connector = PhiSentenceConnector()
-
-# Evidence Fetcher
-offline_evid_fetcher = WikipediaEvidenceFetcher()
-
-pipeline = Pipeline(translator=translator,
-                            sent_connector=phi_sentence_connector,
-                            claim_splitter=None,
-                            evid_fetcher=offline_evid_fetcher,
-                            evid_selector=model,
-                            stm_verifier=None,
-                            lang='de')
-
-dataset = load_dataset('lukasellinger/german_dpr-claim_verification', split='test')
-dataset = dataset.to_list()
-
-outputs, gt_labels, pr_labels = [], [], []
-not_in_wiki = 0
 batch_size = 4
-batch = dataset[12:14]
-output1 = pipeline.verify_test_select(batch, only_intro=True,
-                                         max_evidence_count=3, top_k=3)
-output2 = pipeline.verify_test_select(batch, only_intro=True,
-                                         max_evidence_count=3, top_k=3)
+intro_ends = {}
+for i in tqdm(range(0, len(unique_search_words), batch_size)):
+    batch = unique_search_words[i:i + batch_size]
+    batch = [{'document_search_word': entry} for entry in batch]
+    intro_ends.update(pipeline.mark_summary_sents_test_batch(batch))
 
-output3 = pipeline.verify_test_select(batch, only_intro=True,
-                                         max_evidence_count=3, top_k=3)
 
-if output1 != output2:
-    print('hi')
-    output1 = pipeline.verify_test_select(batch, only_intro=True,
-                                              max_evidence_count=3, top_k=3)
-    output2 = pipeline.verify_test_select(batch, only_intro=True,
-                                              max_evidence_count=3, top_k=3)
+def add_intro_end(entry):
+    entry['intro_end_sent_idx'] = intro_ends.get(entry['title'], -1)
+    return entry
+
+
+dataset = dataset.map(add_intro_end)
+dataset.push_to_hub(dataset_name, token=HF_WRITE_TOKEN)

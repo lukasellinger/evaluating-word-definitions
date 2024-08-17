@@ -105,7 +105,7 @@ class Pipeline:
         entry = {'word': word, 'text': claim}
         if search_word:
             entry['search_word'] = search_word
-        return self.verify_batch([entry], only_intro=only_intro)
+        return self.verify_batch([entry], only_intro=only_intro)[0]
 
     def verify_test_select(self, batch: List[Dict], only_intro: bool = True, max_evidence_count: int = 3, top_k: int = 3):
         """
@@ -258,12 +258,12 @@ class Pipeline:
                         'search_word': entry['document_search_word']} for entry in batch]
 
         _, intro_evids_batch = self.evid_fetcher(evids_batch, word_lang=self.lang, only_intro=True)
-        max_summary_line_numbers = {
-            doc[0]: max(map(int, doc[1]))
+        max_summary_line_indices = {
+            doc['title']: max(map(int, doc['line_indices']))
             for intro_evid in intro_evids_batch
             for doc in intro_evid
         }
-        return max_summary_line_numbers
+        return max_summary_line_indices
 
 
 class FeverPipeline:
