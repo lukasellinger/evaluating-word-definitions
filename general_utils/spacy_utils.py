@@ -101,6 +101,15 @@ def split_into_sentences(txt: str, lang: str = 'en') -> List[str]:
     return [sent.text.strip() for sent in doc.sents]
 
 
+def split_into_passage_sentences(text: str, sentence_limit: int = 3, lang: str = 'en'):
+    sentences = split_into_sentences(text, lang)
+    passages = []
+    for i in range(0, len(sentences), sentence_limit):
+        passages.append(sentences[i:i + sentence_limit])
+
+    return passages
+
+
 def get_first_entity(txt: str, lang: str = 'en') -> str:
     """Takes a text and return the first entity in the text."""
     doc = get_doc(txt, lang)

@@ -8,7 +8,7 @@ from datasets import load_dataset
 from requests import Response
 from transformers import RobertaTokenizer
 
-from general_utils.spacy_utils import split_into_sentences
+from general_utils.spacy_utils import split_into_sentences, split_into_passage_sentences
 from general_utils.utils import generate_case_combinations, split_into_passages, \
     remove_duplicate_values
 
@@ -157,14 +157,17 @@ class Wikipedia:
         :param sentence_limit: Maximum number of sentences to include if split by sentences.
         :return: Dictionary of split texts with keys indicating the title and part.
         """
-        if split_level not in {'passage', 'sentence', 'none'}:
-            raise ValueError("split_level needs to be either 'passage', 'sentence', or 'none'")
+        if split_level not in {'passage', 'sentence', 'passage_sentences', 'none'}:
+            raise ValueError("split_level needs to be either 'passage', 'sentence', 'passage_sentences', or 'none'")
 
         texts = {}
         key_base = f'{title} ({site})' if site else title
 
         if split_level == 'passage':
             passages = split_into_passages(split_into_sentences(text), self.tokenizer)
+            texts = {f'{key_base} {i}': passage for i, passage in enumerate(passages)}
+        elif split_level == 'passage_sentences':
+            passages = split_into_passage_sentences(text)
             texts = {f'{key_base} {i}': passage for i, passage in enumerate(passages)}
         elif split_level == 'sentence':
             sentences = split_into_sentences(text)
@@ -301,7 +304,7 @@ if __name__ == "__main__":
     #assert len(full_docs) == len(intro_docs), f'For Hammer, len(intro) != len(full)'
 
     #wiki.get_text_from_title(['Love (Masaki Suda album)'])
-    a = wiki.get_pages('ERTU', 'ERTU', only_intro=True, word_lang='de')
+    a = wiki.get_pages('ERTU', 'ERTU', only_intro=True, word_lang='de', split_level='sentence')
     # a = wiki.find_similar_titles('Love')
     print('hi')
     # print(wiki.get_pages('a', 'data a', word_lang='de', only_intro=True))

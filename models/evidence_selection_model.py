@@ -30,8 +30,7 @@ class EvidenceSelectionModel(nn.Module):
                 module._sin_cached = None
                 module._cos_k_cached = None
                 module._sin_k_cached = None
-            if hasattr(module, 'inv_freq'):
-                    module.inv_freq = module._compute_inv_freq(device=self.device)
+                module.inv_freq = module._compute_inv_freq(device=self.device)
 
     def forward(self, input_ids=None, attention_mask=None, sentence_mask=None, **kwargs):
         """Forward function."""

@@ -64,7 +64,7 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
 
     OFFLINE_WIKI = 'lukasellinger/wiki_dump_2024-08-14'
 
-    def __init__(self, offline: bool = True, source_lang: str = 'en'):
+    def __init__(self, offline: bool = True, source_lang: str = 'en', split_level: str = 'sentence'):
         """
         Initialize the WikipediaEvidenceFetcher.
 
@@ -72,6 +72,7 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
         :param source_lang: The source language for Wikipedia data.
         """
         self.offline = offline
+        self.split_level = split_level
         self.wiki = Wikipedia(use_dataset=self.OFFLINE_WIKI) if offline else Wikipedia(
             source_lang=source_lang)
 
@@ -122,7 +123,8 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
                 fallback_word=entry.get('translated_word'),
                 word_lang=word_lang,
                 only_intro=only_intro,
-                search_word=entry.get('search_word') if self.offline else None
+                search_word=entry.get('search_word') if self.offline else None,
+                split_level=self.split_level
             )]
         ]
 
