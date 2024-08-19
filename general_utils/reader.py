@@ -43,7 +43,7 @@ class JSONLineReader(Reader):
 
     def _write(self, file, lines):
         for line in lines:
-            json.dump(line, file)
+            json.dump(line, file, ensure_ascii=False)
             file.write('\n')
 
 

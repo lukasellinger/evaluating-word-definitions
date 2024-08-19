@@ -246,3 +246,5 @@ fabric.properties
 /wiki-pages
 
 *.safetensors
+
+dataset/jan
