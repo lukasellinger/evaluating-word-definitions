@@ -297,10 +297,12 @@ def split_into_passages(text, tokenizer, max_lenght=256):
     return psgs
 
 
-def print_classification_report(report, not_in_wiki, avg_claim_count):
+def print_classification_report(report, not_in_wiki=None, avg_claim_count=None):
     print('################################')
-    print(f'Not in wikipedia: {not_in_wiki}')
-    print(f'Avg claim count: {avg_claim_count}')
+    if not_in_wiki:
+        print(f'Not in wikipedia: {not_in_wiki}')
+    if avg_claim_count:
+        print(f'Avg claim count: {avg_claim_count}')
     print(report)
     print('################################')
 
