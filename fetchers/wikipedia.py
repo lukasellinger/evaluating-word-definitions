@@ -8,6 +8,7 @@ from datasets import load_dataset
 from requests import Response
 from transformers import RobertaTokenizer
 
+from fetchers.wiktionary_parser import WiktionaryParser
 from general_utils.spacy_utils import split_into_sentences, split_into_passage_sentences
 from general_utils.utils import generate_case_combinations, split_into_passages, \
     remove_duplicate_values
@@ -28,6 +29,7 @@ class Wikipedia:
         if use_dataset:
             self.offline_backend = self._prepare_offline_backend(use_dataset)
         self.tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
+        self.wiktionary_parser = WiktionaryParser()
 
     def _prepare_offline_backend(self, dataset):
         backend_dataset = pd.DataFrame(load_dataset(dataset).get('train'))
@@ -128,7 +130,7 @@ class Wikipedia:
                     if return_raw:
                         texts.update(self._split_text(title, site, text, split_level='none'))
                     else:
-                        text = self._clean_text(text)
+                        # text = self._clean_text(text)
                         texts.update(
                             self._split_text(title, site, text, split_level, sentence_limit))
             if 'continue' not in data:
@@ -163,7 +165,11 @@ class Wikipedia:
         texts = {}
         key_base = f'{title} ({site})' if site else title
 
-        if split_level == 'passage':
+        if key_base.endswith('(wiktionary)'):
+            word = key_base.split(' (wik')[0]
+            sentences = self.wiktionary_parser.get_wiktionary_glosses(word, text)
+            texts[key_base] = sentences[:sentence_limit]
+        elif split_level == 'passage':
             passages = split_into_passages(split_into_sentences(text), self.tokenizer)
             texts = {f'{key_base} {i}': passage for i, passage in enumerate(passages)}
         elif split_level == 'passage_sentences':
@@ -232,7 +238,7 @@ class Wikipedia:
             if return_raw:
                 texts.update(self._split_text(title, '', text, split_level='none'))
             else:
-                text = self._clean_text(text)
+                #text = self._clean_text(text)
                 texts.update(self._split_text(title, '', text, split_level))
         return list(texts.items()), search_word
 
@@ -299,12 +305,14 @@ class Wikipedia:
 
 if __name__ == "__main__":
     wiki = Wikipedia(use_dataset='lukasellinger/wiki_dump_2024-08-14')
+
     #full_docs, _ = wiki.get_pages('Hammer', 'Hammer', 'de', only_intro=False, return_raw=True)
     #intro_docs, document_search_word = wiki.get_pages('Hammer', 'Hammer', word_lang='de', only_intro=True, return_raw=True)
     #assert len(full_docs) == len(intro_docs), f'For Hammer, len(intro) != len(full)'
 
     #wiki.get_text_from_title(['Love (Masaki Suda album)'])
-    a = wiki.get_pages_offline(search_word='censorship', split_level='sentence', only_intro=True, return_raw=False)
+    a = wiki.get_pages_offline(search_word='imam', split_level='sentence', only_intro=True, return_raw=False)
     # a = wiki.find_similar_titles('Love')
+    print(a)
     print('hi')
     # print(wiki.get_pages('a', 'data a', word_lang='de', only_intro=True))

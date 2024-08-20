@@ -90,6 +90,8 @@ class ModelStatementVerifier(StatementVerifier):
     def _order_hypothesis(self, hypo_sents: List[str]):
         if self.hypothesis_sent_order not in {'reverse', 'top_last', 'keep'}:
             raise ValueError("hypothesis_sent_order needs to be either 'reverse', 'top_last', or 'keep'")
+        if len(hypo_sents) == 0:
+            return ''
 
         if self.hypothesis_sent_order == 'reverse':
             return ' '.join([sentence for sentence in hypo_sents[::-1]])
