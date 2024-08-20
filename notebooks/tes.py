@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+from fetchers.wiktionary_parser import WiktionaryParser
+
 # Data
 models = ['Model A', 'Model B', 'Model C']
 german_words_dataset1 = [95.0, 93.8, 94.6]
@@ -34,3 +36,5 @@ ax.legend()
 # Display the bar chart
 plt.tight_layout()
 plt.show()
+
+WiktionaryParser().get_wiktionary_glosses('asdf', 'asdf')
