@@ -298,13 +298,13 @@ class Wikipedia:
 
 
 if __name__ == "__main__":
-    wiki = Wikipedia()
+    wiki = Wikipedia(use_dataset='lukasellinger/wiki_dump_2024-08-14')
     #full_docs, _ = wiki.get_pages('Hammer', 'Hammer', 'de', only_intro=False, return_raw=True)
     #intro_docs, document_search_word = wiki.get_pages('Hammer', 'Hammer', word_lang='de', only_intro=True, return_raw=True)
     #assert len(full_docs) == len(intro_docs), f'For Hammer, len(intro) != len(full)'
 
     #wiki.get_text_from_title(['Love (Masaki Suda album)'])
-    a = wiki.get_pages('ERTU', 'ERTU', only_intro=True, word_lang='de', split_level='sentence')
+    a = wiki.get_pages_offline(search_word='censorship', split_level='sentence', only_intro=True, return_raw=False)
     # a = wiki.find_similar_titles('Love')
     print('hi')
     # print(wiki.get_pages('a', 'data a', word_lang='de', only_intro=True))

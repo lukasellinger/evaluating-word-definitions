@@ -113,17 +113,21 @@ class ModelStatementVerifier(StatementVerifier):
         predictions_batch = []
         for statement, hypothesis in zip(statements, hypothesis_batch):
             facts = statement.get('splits', [statement.get('text')])
-            model_inputs = self.tokenizer([hypothesis] * len(facts), facts,
-                                          return_tensors='pt', padding=True).to(self.device)
-            del model_inputs['token_type_ids']
-            with torch.no_grad():
-                outputs = self.model(**model_inputs)
-                logits = outputs['logits']
-                probabilities = torch.softmax(logits, dim=-1)
-                predictions = torch.argmax(probabilities, dim=-1).tolist()
+            if not hypothesis:
+                predictions = [Fact.NOT_SUPPORTED.name] * len(facts)
+                factuality = Fact.NOT_SUPPORTED.name
+            else:
+                model_inputs = self.tokenizer([hypothesis] * len(facts), facts,
+                                              return_tensors='pt', padding=True).to(self.device)
+                del model_inputs['token_type_ids']
+                with torch.no_grad():
+                    outputs = self.model(**model_inputs)
+                    logits = outputs['logits']
+                    probabilities = torch.softmax(logits, dim=-1)
+                    predictions = torch.argmax(probabilities, dim=-1).tolist()
 
-            factuality = sum(pred == 0 for pred in predictions) / len(predictions)
-            predictions = [Fact.SUPPORTED.name if pred == 0 else Fact.NOT_SUPPORTED.name for pred in predictions]
+                factuality = sum(pred == 0 for pred in predictions) / len(predictions)
+                predictions = [Fact.SUPPORTED.name if pred == 0 else Fact.NOT_SUPPORTED.name for pred in predictions]
             factualities = [{'atom': fact, 'predicted': prediction} for fact, prediction in zip(facts, predictions)]
 
             predictions_batch.append({

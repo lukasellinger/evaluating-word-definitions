@@ -54,13 +54,14 @@ class ModelEvidenceSelector(EvidenceSelector):
 
     MODEL_NAME = 'lukasellinger/evidence_selection_model-v2'
 
-    def __init__(self, model_name: str = ''):
+    def __init__(self, model_name: str = '', min_similarity: float = 0.8):
         """
         Initialize the ModelEvidenceSelector with the specified model.
 
         :param model_name: Name of the model to use. Defaults to a pre-defined model.
         """
         self.model_name = model_name or self.MODEL_NAME
+        self.min_similarity = min_similarity
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = None
@@ -125,7 +126,8 @@ class ModelEvidenceSelector(EvidenceSelector):
             for entry in evidences:
                 sentence_similarities.extend(self._compute_sentence_similarities(entry['title'], entry['line_indices'], entry['lines'], statement_embeddings))
 
-            sorted_sentences = sorted(sentence_similarities, key=lambda x: x['sim'], reverse=True)
+            filtered_sentences = filter(lambda x: x['sim'] > self.min_similarity, sentence_similarities)
+            sorted_sentences = sorted(filtered_sentences, key=lambda x: x['sim'], reverse=True)
             top_sentences = self._get_top_unique_sentences(sorted_sentences, top_k)
             top_sentences_batch.append(top_sentences)
         return top_sentences_batch
