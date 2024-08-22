@@ -139,7 +139,7 @@ class ModelEvidenceSelector(EvidenceSelector):
             return []
 
         claim_similarities = [entry['sim'] for entry in sentence_similarities]
-        sentence_embeddings = torch.stack([entry['embedding'] for entry in sentence_similarities])
+        sentence_embeddings = torch.stack([entry['embedding'] for entry in sentence_similarities]).cpu()
 
         pairwise_similarities = cosine_similarity(
             sentence_embeddings.unsqueeze(1), sentence_embeddings.unsqueeze(0), dim=2
@@ -148,6 +148,7 @@ class ModelEvidenceSelector(EvidenceSelector):
         selected_indices = []
         candidate_indices = list(range(len(sentence_embeddings)))
 
+        print(candidate_indices)
         for _ in range(top_n):
             mmr_scores = []
             for i in candidate_indices:
@@ -160,6 +161,7 @@ class ModelEvidenceSelector(EvidenceSelector):
                 mmr_score = lambda_param * relevance - (1 - lambda_param) * diversity
                 mmr_scores.append(mmr_score)
 
+            print(mmr_scores)
             best_index = candidate_indices[np.argmax(mmr_scores)]
             selected_indices.append(best_index)
             candidate_indices.remove(best_index)
@@ -208,7 +210,7 @@ class ModelEvidenceSelector(EvidenceSelector):
         with torch.no_grad():
             sentence_embeddings = self.model(**sentences_model_input).squeeze(0)
             claim_similarities = cosine_similarity(statement_embeddings, sentence_embeddings, dim=2).tolist()[0]
-        return [{'title': page, 'line_idx': line_num, 'text': sentence, 'sim': sim, 'embedding': embedding.cpu()} for
+        return [{'title': page, 'line_idx': line_num, 'text': sentence, 'sim': sim, 'embedding': embedding} for
                 line_num, sentence, sim, embedding in zip(line_numbers, sentences, claim_similarities, sentence_embeddings)]
 
     def _encode_sentences(self, sentences: List[str]):
