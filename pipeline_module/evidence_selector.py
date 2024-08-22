@@ -148,8 +148,7 @@ class ModelEvidenceSelector(EvidenceSelector):
         selected_indices = []
         candidate_indices = list(range(len(sentence_embeddings)))
 
-        print(candidate_indices)
-        for _ in range(top_n):
+        for _ in range(min(top_n, len(candidate_indices))):
             mmr_scores = []
             for i in candidate_indices:
                 relevance = claim_similarities[i]
@@ -161,7 +160,6 @@ class ModelEvidenceSelector(EvidenceSelector):
                 mmr_score = lambda_param * relevance - (1 - lambda_param) * diversity
                 mmr_scores.append(mmr_score)
 
-            print(mmr_scores)
             best_index = candidate_indices[np.argmax(mmr_scores)]
             selected_indices.append(best_index)
             candidate_indices.remove(best_index)
