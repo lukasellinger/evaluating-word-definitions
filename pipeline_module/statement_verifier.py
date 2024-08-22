@@ -51,7 +51,7 @@ class ModelStatementVerifier(StatementVerifier):
     StatementVerifier implementation that uses a machine learning model for verification.
     """
 
-    MODEL_NAME = 'lukasellinger/claim_verification_model-v1'
+    MODEL_NAME = 'lukasellinger/claim_verification_model-v5'
 
     def __init__(self, model_name: str = '', hypothesis_sent_order: str = 'reverse'):
         """

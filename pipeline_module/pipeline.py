@@ -358,19 +358,19 @@ if __name__ == "__main__":
         model_name='MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7')
     #lang = 'de'
 
-    raw_dataset = load_dataset("lukasellinger/fever_evidence_selection-v1").get('dev')
-    fever_pipeline = FeverPipeline(claim_splitter=None,
-                                   evid_selector=evid_selector,
-                                   stm_verifier=stm_verifier)
-    fever_pipeline.verify_test_dataset(raw_dataset)
-    # pipeline = Pipeline(translator, sent_connector, claim_splitter, evid_fetcher, evid_selector,
-    #                     stm_verifier, lang)
-    # result = pipeline.verify_batch([{'word': 'ERTU',
-    #                                  'text': 'die staatliche Rundfunkgesellschaft Ägyptens',
-    #                                  'search_word': 'ertu'},
-    #                                 {'word': 'Kindergewerkschaft',
-    #                                  'text': 'I like to swim and dance',
-    #                                  'search_word': "children's union"}])
+    # raw_dataset = load_dataset("lukasellinger/fever_evidence_selection-v1").get('dev')
+    # fever_pipeline = FeverPipeline(claim_splitter=None,
+    #                                evid_selector=evid_selector,
+    #                                stm_verifier=stm_verifier)
+    # fever_pipeline.verify_test_dataset(raw_dataset)
+    offline_evid_fetcher = WikipediaEvidenceFetcher()
+    pipeline = Pipeline(None, None, None, offline_evid_fetcher, evid_selector,
+                         stm_verifier, 'en')
+    result = pipeline.verify_test_batch([{'word': 'ERTU',
+                                      'document_search_word': 'glacier',
+                                          'in_wiki': 'Yes',
+                                    'connected_claim': 'A glacier is an ice mass resulting from snow with a clearly defined catchment area, which moves independently due to the slope, structure of the ice, temperature, and the shear stress resulting from the mass of the ice and the other factors.'},
+                                     ])
     # print(result)
     # #result = pipeline.verify_batch([{'word': 'ERTU', 'text': 'die staatliche Rundfunkgesellschaft Ägyptens', 'search_word': 'ertu'}])
     # #print(result)
