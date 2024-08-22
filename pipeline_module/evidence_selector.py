@@ -208,7 +208,7 @@ class ModelEvidenceSelector(EvidenceSelector):
         with torch.no_grad():
             sentence_embeddings = self.model(**sentences_model_input).squeeze(0)
             claim_similarities = cosine_similarity(statement_embeddings, sentence_embeddings, dim=2).tolist()[0]
-        return [{'title': page, 'line_idx': line_num, 'text': sentence, 'sim': sim, 'embedding': embedding} for
+        return [{'title': page, 'line_idx': line_num, 'text': sentence, 'sim': sim, 'embedding': embedding.cpu()} for
                 line_num, sentence, sim, embedding in zip(line_numbers, sentences, claim_similarities, sentence_embeddings)]
 
     def _encode_sentences(self, sentences: List[str]):

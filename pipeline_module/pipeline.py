@@ -353,7 +353,7 @@ class FeverPipeline:
 
 
 if __name__ == "__main__":
-    evid_selector = ModelEvidenceSelector()
+    evid_selector = ModelEvidenceSelector(evidence_selection='mmr')
     stm_verifier = ModelStatementVerifier(
         model_name='MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7')
     #lang = 'de'
