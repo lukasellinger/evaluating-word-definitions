@@ -2,6 +2,10 @@
 
 ## Setup
 
+Clone it via:
+```
+git clone --recurse-submodules git@github.com:lukasellinger/evaluating_factuality_word_definitions.git
+```
 To set up the project environment, follow these steps:
 
 1. Install the required Python packages and models by running:

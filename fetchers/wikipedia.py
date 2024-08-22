@@ -168,7 +168,8 @@ class Wikipedia:
         if key_base.endswith('(wiktionary)'):
             word = key_base.split(' (wik')[0]
             sentences = self.wiktionary_parser.get_wiktionary_glosses(word, text)
-            texts[key_base] = sentences[:sentence_limit]
+            if sentences:
+                texts[key_base] = sentences[:sentence_limit]
         elif split_level == 'passage':
             passages = split_into_passages(split_into_sentences(text), self.tokenizer)
             texts = {f'{key_base} {i}': passage for i, passage in enumerate(passages)}

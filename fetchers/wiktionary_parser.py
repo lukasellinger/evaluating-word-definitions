@@ -1,4 +1,5 @@
 from wikitextprocessor import Wtp
+
 from wiktextract import WiktionaryConfig, WiktextractContext, parse_page
 
 
