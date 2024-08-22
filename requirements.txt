@@ -13,7 +13,8 @@ beautifulsoup4~=4.12.2
 rank_bm25~=0.2.2
 sacremoses~=0.1.1
 langdetect~=1.0.9
-git+https://github.com/hdaSprachtechnologie/odenet
+git+https://github.com/hdaSprachtechnologie/odenet.git
+git+https://github.com/tatuylonen/wiktextract.git
 einops~=0.8.0
 safetensors~=0.4.3
 openai~=1.35.10
