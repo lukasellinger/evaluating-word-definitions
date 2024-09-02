@@ -34,6 +34,7 @@ def rank_docs(query: str, docs: List[str], k=5, get_indices=True) -> List[str] |
     :param get_indices: If True, returns the indices, else the text.
     :return: List of most similar documents.
     """
+
     def preprocess(txt: str):
         return txt.lower()
 
@@ -158,7 +159,8 @@ def generate_case_combinations(txt: str) -> List[str]:
 def sentence_simplification(sentences: List[str]):
     discourse_simplification = PROJECT_DIR.joinpath('../DiscourseSimplification')
     LineReader().write(discourse_simplification.joinpath('input.txt'), sentences, mode='w')
-    command = ["mvn", "-f", discourse_simplification.joinpath("pom.xml"), "clean", "compile", "exec:java"]
+    command = ["mvn", "-f", discourse_simplification.joinpath("pom.xml"), "clean", "compile",
+               "exec:java"]
     subprocess.run(command, text=True, cwd=discourse_simplification)
     outputs = JSONReader().read(discourse_simplification.joinpath('output.json')).get('sentences')
     outputs = [{'text': entry.get('originalSentence'),
@@ -239,34 +241,40 @@ def remove_duplicate_values(d: Dict):
     return unique_dict
 
 
-def parse_model_answer(generated_answer: str):
+def parse_model_answer(generated_answer: str, language='en'):
+    true_token = 'wahr' if language == 'de' else 'true'
+    false_token = 'falsch' if language == 'de' else 'false'
+
     # when logits are unavailable
     generated_answer = generated_answer.lower()
-    if "true" in generated_answer or "false" in generated_answer:
-        if "true" in generated_answer and "false" not in generated_answer:
+    if true_token in generated_answer or false_token in generated_answer:
+        if true_token in generated_answer and false_token not in generated_answer:
             is_supported = True
-        elif "false" in generated_answer and "true" not in generated_answer:
+        elif false_token in generated_answer and true_token not in generated_answer:
             is_supported = False
         else:
-            is_supported = generated_answer.index("true") > generated_answer.index("false")
+            is_supported = generated_answer.index(true_token) > generated_answer.index(false_token)
     else:
+        unsupported_keywords = (["nicht", "kann nicht", "unbekannt", "informationen"] if language == 'de'
+                                else ["not", "cannot", "unknown", "information"])
         is_supported = all([keyword not in generated_answer.translate(
-                            str.maketrans("", "", string.punctuation)).split() for keyword in
-                                            ["not", "cannot", "unknown", "information"]])
+            str.maketrans("", "", string.punctuation)).split() for keyword in
+                            unsupported_keywords])
     return 'SUPPORTED' if is_supported else 'NOT_SUPPORTED'
 
 
 def get_openai_prediction(response):
-    log_probs = response.get('choices', [])[0].get('logprobs', {}).get('content', [])[0].get('top_logprobs', [])
+    log_probs = response.get('choices', [])[0].get('logprobs', {}).get('content', [])[0].get(
+        'top_logprobs', [])
     sorted_logprobs = sorted(log_probs, key=lambda x: x.get('logprob'))  # sort ASC
 
     true_logprob = -np.inf
     false_logprob = -np.inf
     for log_prob in sorted_logprobs:
         token = log_prob.get('token').lower().strip()
-        if token == 'true':
+        if token in ('true', 'wahr'):
             true_logprob = log_prob.get('logprob')
-        elif token == 'false':
+        elif token in ('false', 'falsch'):
             false_logprob = log_prob.get('logprob')
 
     if true_logprob != -np.inf or false_logprob != -np.inf:

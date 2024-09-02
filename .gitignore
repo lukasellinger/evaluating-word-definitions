@@ -248,3 +248,4 @@ fabric.properties
 *.safetensors
 
 dataset/jan
+dataset/SHROOM_test-labeled

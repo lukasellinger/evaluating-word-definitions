@@ -13,7 +13,8 @@ from pipeline_module.claim_splitter import ClaimSplitter, DisSimSplitter
 from pipeline_module.evidence_fetcher import EvidenceFetcher, WikipediaEvidenceFetcher
 from pipeline_module.evidence_selector import EvidenceSelector, ModelEvidenceSelector
 from pipeline_module.sentence_connector import SentenceConnector, ColonSentenceConnector
-from pipeline_module.statement_verifier import StatementVerifier, ModelStatementVerifier
+from pipeline_module.statement_verifier import StatementVerifier, ModelStatementVerifier, \
+    ModelEnsembleStatementVerifier
 from pipeline_module.translator import Translator, OpusMTTranslator
 
 
@@ -354,7 +355,7 @@ class FeverPipeline:
 
 if __name__ == "__main__":
     evid_selector = ModelEvidenceSelector(evidence_selection='mmr')
-    stm_verifier = ModelStatementVerifier(
+    stm_verifier = ModelEnsembleStatementVerifier(
         model_name='MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7')
     #lang = 'de'
 
