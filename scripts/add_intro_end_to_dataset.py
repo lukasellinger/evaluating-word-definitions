@@ -4,7 +4,7 @@ from config import HF_WRITE_TOKEN
 from pipeline_module.evidence_fetcher import WikipediaEvidenceFetcher
 from pipeline_module.pipeline import Pipeline
 
-dataset = 'lukasellinger/wiki_dump_2024-07-08'
+dataset = 'lukasellinger/wiki_dump_2024-09-27'
 dataset = load_dataset(dataset).get('train')
 
 df = dataset.to_pandas()
@@ -33,4 +33,4 @@ def add_intro_end(entry):
 
 
 dataset = dataset.map(add_intro_end)
-dataset.push_to_hub('lukasellinger/wiki_dump_2024-07-08', private=True, token=HF_WRITE_TOKEN)
+dataset.push_to_hub('lukasellinger/wiki_dump_2024-09-27', private=True, token=HF_WRITE_TOKEN)

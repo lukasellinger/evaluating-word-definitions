@@ -14,4 +14,4 @@ checkpoint = torch.load(checkpoint_path)
 
 # Load the model state
 model.load_state_dict(checkpoint['model'])
-model.push_to_hub('lukasellinger/claim_verification_model-', private=True)
+model.push_to_hub('lukasellinger/claim_verification_model-keep', private=True)
