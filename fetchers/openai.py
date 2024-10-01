@@ -1,3 +1,5 @@
+import os
+
 from openai import OpenAI
 
 from config import OPEN_AI_TOKEN
@@ -33,6 +35,7 @@ class OpenAiFetcher:
 
         result = self.client.files.content(result_file_id).content
 
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
         with open(output_file, 'wb') as file:
             file.write(result)
 
@@ -40,3 +43,15 @@ class OpenAiFetcher:
 
     def get_batch_update(self, batch_job):
         return self.client.batches.retrieve(batch_job.id)
+
+    def get_output(self, messages, model="gpt-4o-mini", temperature=0.1):
+        response = self.client.chat.completions.create(
+            model=model,
+            temperature=temperature,
+            messages=messages,
+            seed=42,
+            logprobs=True,
+            top_logprobs=5
+        )
+
+        return response

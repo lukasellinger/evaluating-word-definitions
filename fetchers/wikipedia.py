@@ -130,7 +130,7 @@ class Wikipedia:
                     if return_raw:
                         texts.update(self._split_text(title, site, text, split_level='none'))
                     else:
-                        # text = self._clean_text(text)
+                        text = self._clean_text(text)
                         texts.update(
                             self._split_text(title, site, text, split_level, sentence_limit))
             if 'continue' not in data:
@@ -165,11 +165,13 @@ class Wikipedia:
         texts = {}
         key_base = f'{title} ({site})' if site else title
 
-        if key_base.endswith('(wiktionary)'):
-            word = key_base.split(' (wik')[0]
-            sentences = self.wiktionary_parser.get_wiktionary_glosses(word, text)
-            if sentences:
-                texts[key_base] = sentences[:sentence_limit]
+        if split_level == 'none':
+            texts[key_base] = text
+        #elif key_base.endswith('(wiktionary)'):
+        #    word = key_base.split(' (wik')[0]
+        #    sentences = self.wiktionary_parser.get_wiktionary_glosses(word, text)
+        #    if sentences:
+        #        texts[key_base] = sentences[:sentence_limit]
         elif split_level == 'passage':
             passages = split_into_passages(split_into_sentences(text), self.tokenizer)
             texts = {f'{key_base} {i}': passage for i, passage in enumerate(passages)}
@@ -179,8 +181,6 @@ class Wikipedia:
         elif split_level == 'sentence':
             sentences = split_into_sentences(text)
             texts[key_base] = sentences[:sentence_limit]
-        else:  # split_level == 'none'
-            texts[key_base] = text
 
         return texts
 

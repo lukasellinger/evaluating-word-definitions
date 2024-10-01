@@ -263,9 +263,11 @@ def parse_model_answer(generated_answer: str, language='en'):
     return 'SUPPORTED' if is_supported else 'NOT_SUPPORTED'
 
 
-def get_openai_prediction(response):
-    log_probs = response.get('choices', [])[0].get('logprobs', {}).get('content', [])[0].get(
-        'top_logprobs', [])
+def get_openai_prediction_log_probs(response, batched=True):
+    if not batched:
+        response = response.to_dict()
+
+    log_probs = response.get('choices', [])[0].get('logprobs', {}).get('content', [])[0].get('top_logprobs', [])
     sorted_logprobs = sorted(log_probs, key=lambda x: x.get('logprob'))  # sort ASC
 
     true_logprob = -np.inf
@@ -278,9 +280,22 @@ def get_openai_prediction(response):
             false_logprob = log_prob.get('logprob')
 
     if true_logprob != -np.inf or false_logprob != -np.inf:
-        return 'SUPPORTED' if true_logprob > false_logprob else 'NOT_SUPPORTED'
+        return true_logprob, false_logprob
     else:
         return 'UNKNOWN'
+
+
+def get_openai_prediction(response):
+    prediction = get_openai_prediction_log_probs(response)
+    if prediction == 'UNKNOWN':
+        return prediction
+    else:
+        true_logprob, false_logprob = get_openai_prediction_log_probs(response)
+
+        if true_logprob != -np.inf or false_logprob != -np.inf:
+            return 'SUPPORTED' if true_logprob > false_logprob else 'NOT_SUPPORTED'
+        else:
+            return 'UNKNOWN'
 
 
 def split_into_passages(text, tokenizer, max_lenght=256):
@@ -318,6 +333,6 @@ def print_classification_report(report, not_in_wiki=None, avg_claim_count=None):
 def print_fever_classification_report(report, fever_report):
     print('################################')
     print(f'FeverScore: {fever_report.get("strict_score")}')
-    print(f'Gold FeverScore: {fever_report.get("gold_score")}')
+    print(f'Gold Label: {fever_report.get("gold_label")}')
     print(report)
     print('################################')

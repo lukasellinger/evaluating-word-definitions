@@ -9,10 +9,10 @@ from pipeline_module.evidence_selector import ModelEvidenceSelector
 
 
 def main():
-    model_name = 'lukasellinger/evidence_selection_model-v3'
+    model_name = 'lukasellinger/evidence_selection_model-v4'
     dataset_dict = load_dataset('lukasellinger/fever_claim_verification_dissim-v1')
 
-    evid_selector = ModelEvidenceSelector(model_name)
+    evid_selector = ModelEvidenceSelector(model_name, evidence_selection='top')
 
     for name, dataset in dataset_dict.items():
         selected_evidence_lines = []

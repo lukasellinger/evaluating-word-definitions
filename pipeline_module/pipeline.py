@@ -349,7 +349,7 @@ class FeverPipeline:
             JSONLineReader().write(f'{output_file_name}.jsonl', outputs)
 
         fever_report = {'strict_score': fever_score(fever_instances)[0],
-                        'gold_score': fever_score(fever_instances, use_gold_labels=True)[0]}
+                        'gold_label': fever_score(fever_instances, use_gold_labels=True)[0]}
         return outputs, classification_report(gt_labels, pr_labels, zero_division=0, digits=4), fever_report
 
 

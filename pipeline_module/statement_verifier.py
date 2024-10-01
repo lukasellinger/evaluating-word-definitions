@@ -5,6 +5,9 @@ import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from dataset.def_dataset import Fact
+from fetchers.openai import OpenAiFetcher
+from general_utils.utils import get_openai_prediction, parse_model_answer, \
+    get_openai_prediction_log_probs
 from models.claim_verification_model import ClaimVerificationModel
 
 
@@ -89,7 +92,8 @@ class ModelStatementVerifier(StatementVerifier):
 
     def _order_hypothesis(self, hypo_sents: List[str]):
         if self.hypothesis_sent_order not in {'reverse', 'top_last', 'keep'}:
-            raise ValueError("hypothesis_sent_order needs to be either 'reverse', 'top_last', or 'keep'")
+            raise ValueError(
+                "hypothesis_sent_order needs to be either 'reverse', 'top_last', or 'keep'")
         if len(hypo_sents) == 0:
             return ''
 
@@ -111,7 +115,8 @@ class ModelStatementVerifier(StatementVerifier):
         if not self.model:
             self.load_model()
 
-        hypothesis_batch = [self._order_hypothesis([sentence['text'] for sentence in entry]) for entry in evids_batch]
+        hypothesis_batch = [self._order_hypothesis([sentence['text'] for sentence in entry]) for
+                            entry in evids_batch]
         predictions_batch = []
         for statement, hypothesis in zip(statements, hypothesis_batch):
             facts = statement.get('splits', [statement.get('text')])
@@ -129,8 +134,10 @@ class ModelStatementVerifier(StatementVerifier):
                     predictions = torch.argmax(probabilities, dim=-1).tolist()
 
                 factuality = sum(pred == 0 for pred in predictions) / len(predictions)
-                predictions = [Fact.SUPPORTED.name if pred == 0 else Fact.NOT_SUPPORTED.name for pred in predictions]
-            factualities = [{'atom': fact, 'predicted': prediction} for fact, prediction in zip(facts, predictions)]
+                predictions = [Fact.SUPPORTED.name if pred == 0 else Fact.NOT_SUPPORTED.name for
+                               pred in predictions]
+            factualities = [{'atom': fact, 'predicted': prediction} for fact, prediction in
+                            zip(facts, predictions)]
 
             predictions_batch.append({
                 'predicted': Fact.SUPPORTED.name if factuality == 1 else Fact.NOT_SUPPORTED.name,
@@ -156,7 +163,8 @@ class ModelEnsembleStatementVerifier(ModelStatementVerifier):
         super().__init__(model_name, hypothesis_sent_order)
         from transformers import pipeline
         self.classifier = pipeline("zero-shot-classification",
-                              model="facebook/bart-large-mnli")
+                                   model="facebook/bart-large-mnli")
+        self.openai = OpenAiFetcher()
 
     def load_model(self):
         if self.model is None:
@@ -203,18 +211,37 @@ class ModelEnsembleStatementVerifier(ModelStatementVerifier):
                     predictions = torch.argmax(probabilities, dim=-1).tolist()
 
                     # Identify low confidence cases (maximum probability < 0.1)
-                    low_confidence_indices = (maximums < 0.4).nonzero(as_tuple=True)[0]
+                    low_confidence_indices = (maximums < 0.7).nonzero(as_tuple=True)[0]
 
                     if len(low_confidence_indices) > 0:
+                        # # Prepare inputs for the low confidence cases
+                        # low_confidence_facts = [facts[i] for i in low_confidence_indices.tolist()]
+                        # for i, low_fact in zip(low_confidence_indices, low_confidence_facts):
+                        #     response = self.openai.get_output([
+                        #         {
+                        #             "role": "user",
+                        #             "content": f"Please verify the following statement. Input: {low_fact} True or False?\nOutput:'"
+                        #         }
+                        #     ])
+                        #
+                        #     true_log_prob, false_log_prob = get_openai_prediction_log_probs(
+                        #         response, batched=False)
+                        #     zero_shot_probs = torch.softmax(
+                        #         torch.tensor([true_log_prob, false_log_prob]), dim=-1)
+                        #     zero_shot_probs = torch.cat((zero_shot_probs, zero_shot_probs[1:2]),
+                        #                                 dim=-1)
+                        #     probabilities[i] = 2.5 * probabilities[i] + zero_shot_probs  # 1.5
+                        # predictions = torch.argmax(probabilities, dim=-1).tolist()
                         # Prepare inputs for the low confidence cases
                         low_confidence_facts = [facts[i] for i in low_confidence_indices.tolist()]
                         candidate_labels = ['true', 'false']
+
                         outputs = self.classifier(low_confidence_facts, candidate_labels, multi_label=True)
                         zero_shot_probs = torch.softmax(torch.tensor([output.get('scores') for output in outputs]), dim=-1)
                         zero_shot_probs = torch.cat((zero_shot_probs, zero_shot_probs[:, 1:2]), dim=1)
-                        combined_probabilities = probabilities[low_confidence_indices] + zero_shot_probs
+                        combined_probabilities = 1.5 * probabilities[low_confidence_indices] + zero_shot_probs
                         combined_predictions = torch.argmax(combined_probabilities, dim=-1).tolist()
-                        print('used low confidence')
+                        # print('used low confidence')
                         for i, idx in enumerate(low_confidence_indices):
                             predictions[idx] = combined_predictions[i]
 
@@ -238,6 +265,6 @@ if __name__ == "__main__":
     verifier = ModelStatementVerifier(hypothesis_sent_order='top_last')
     results = verifier.verify_statement_batch(
         [{'text': 'Sun is hot.'}, {'text': 'Sun is cold.'}],
-        [{'text': ['Sun is very very very hot.']}, {'text' : ['Sun is very very very hot.']}]
+        [{'text': ['Sun is very very very hot.']}, {'text': ['Sun is very very very hot.']}]
     )
     print(results)

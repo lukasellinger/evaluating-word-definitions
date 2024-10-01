@@ -62,7 +62,7 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
     EvidenceFetcher implementation that fetches evidence from Wikipedia.
     """
 
-    OFFLINE_WIKI = 'lukasellinger/wiki_dump_2024-08-14'
+    OFFLINE_WIKI = 'lukasellinger/wiki_dump_2024-09-27'
 
     def __init__(self, offline: bool = True, source_lang: str = 'en', split_level: str = 'sentence'):
         """

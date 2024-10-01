@@ -36,9 +36,9 @@ def main(dataset_name, wiki):
 
 
 if __name__ == "__main__":
-    dataset_names = ["lukasellinger/german_wiktionary-claim_verification-large",
-                     "lukasellinger/german_wiktionary-claim_verification-mini"]
-    offline_wiki = 'lukasellinger/wiki_dump_2024-08-14'
+    dataset_names = ["lukasellinger/shroom-claim_verification"]
+                     #"lukasellinger/german_wiktionary-claim_verification-mini"]
+    offline_wiki = 'lukasellinger/wiki_dump_2024-09-02_shroom'
     wiki = Wikipedia(use_dataset=offline_wiki)
     for dataset_name in dataset_names:
         stats = main(dataset_name, wiki)
