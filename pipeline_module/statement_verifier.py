@@ -27,6 +27,10 @@ class StatementVerifier(ABC):
         return self.verify_statement_batch(statements, evidence_batch)
 
     @abstractmethod
+    def set_hypothesis_sent_order(self, sent_order: str):
+        pass
+
+    @abstractmethod
     def verify_statement(self, statement: Dict, evidence: str):
         """
         Verify a single statement against a single evidence.
@@ -63,10 +67,17 @@ class ModelStatementVerifier(StatementVerifier):
         :param model_name: Name of the model to use. Defaults to a pre-defined model.
         """
         self.model_name = model_name or self.MODEL_NAME
-        self.hypothesis_sent_order = hypothesis_sent_order
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = None
+        self.hypothesis_sent_order = None
+        self.set_hypothesis_sent_order(hypothesis_sent_order)
+
+    def set_hypothesis_sent_order(self, sent_order: str):
+        if sent_order not in {'reverse', 'top_last', 'keep'}:
+            raise ValueError(
+                "hypothesis_sent_order needs to be either 'reverse', 'top_last', or 'keep'")
+        self.hypothesis_sent_order = sent_order
 
     def load_model(self):
         if self.model is None:
@@ -122,7 +133,7 @@ class ModelStatementVerifier(StatementVerifier):
             facts = statement.get('splits', [statement.get('text')])
             if not hypothesis:
                 predictions = [Fact.NOT_SUPPORTED.name] * len(facts)
-                factuality = Fact.NOT_SUPPORTED.name
+                factuality = Fact.NOT_SUPPORTED.to_factuality()
             else:
                 model_inputs = self.tokenizer([hypothesis] * len(facts), facts,
                                               return_tensors='pt', padding=True).to(self.device)

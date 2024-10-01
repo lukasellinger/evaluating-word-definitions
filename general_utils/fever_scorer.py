@@ -26,14 +26,25 @@ def check_predicted_evidence_format(instance):
 
 
 def is_correct_label(instance, use_gold_labels=False):
-    return instance["label"].upper() == instance["predicted_label"].upper() or use_gold_labels
+    label = instance["label"].upper()
+    predicted_label = instance["predicted_label"].upper()
+
+    # Check if the predicted label matches the actual label, or if using gold labels is enabled
+    if label == predicted_label or use_gold_labels:
+        return True
+
+    # Special case: treat 'NOT_ENOUGH_INFO' as correct if predicted as 'NOT_SUPPORTED'
+    if label == 'NOT_ENOUGH_INFO' and predicted_label == 'NOT_SUPPORTED':
+        return True
+
+    return False
 
 
 def is_strictly_correct(instance, max_evidence=None, use_gold_labels=False):
     # Strict evidence matching is only for NEI class
     check_predicted_evidence_format(instance)
 
-    if instance["label"].upper() != "NOT ENOUGH INFO" and is_correct_label(instance, use_gold_labels):
+    if instance["label"].upper() != "NOT_ENOUGH_INFO" and is_correct_label(instance, use_gold_labels):
         assert 'predicted_evidence' in instance, "Predicted evidence must be provided for strict scoring"
 
         if max_evidence is None:
@@ -47,7 +58,7 @@ def is_strictly_correct(instance, max_evidence=None, use_gold_labels=False):
                 return True
 
     # If the class is NEI, we don't score the evidence retrieval component
-    elif instance["label"].upper() == "NOT ENOUGH INFO" and is_correct_label(instance, use_gold_labels):
+    elif instance["label"].upper() == "NOT_ENOUGH_INFO" and is_correct_label(instance, use_gold_labels):
         return True
 
     return False
@@ -57,7 +68,7 @@ def evidence_macro_precision(instance, max_evidence=None):
     this_precision = 0.0
     this_precision_hits = 0.0
 
-    if instance["label"].upper() != "NOT ENOUGH INFO":
+    if instance["label"].upper() != "NOT_ENOUGH_INFO":
         all_evi = [[e[2], e[3]] for eg in instance["evidence"] for e in eg if e[3] is not None]
 
         predicted_evidence = instance["predicted_evidence"] if max_evidence is None else \
@@ -75,7 +86,7 @@ def evidence_macro_precision(instance, max_evidence=None):
 
 def evidence_macro_recall(instance, max_evidence=None):
     # We only want to score F1/Precision/Recall of recalled evidence for NEI claims
-    if instance["label"].upper() != "NOT ENOUGH INFO":
+    if instance["label"].upper() != "NOT_ENOUGH_INFO":
         # If there's no evidence to predict, return 1
         if len(instance["evidence"]) == 0 or all([len(eg) == 0 for eg in instance]):
            return 1.0, 1.0

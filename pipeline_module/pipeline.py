@@ -318,7 +318,7 @@ class FeverPipeline:
                             'evidence': evidence
                             })
             fever_instances.append(build_fever_instance(entry.get('label'),
-                                                        entry['evidence_lines'].split(';'),
+                                                        entry['evidence_lines'].split(';') if entry['evidence_lines'] else [],
                                                         entry['document_id'],
                                                         factuality.get('predicted'),
                                                         [(line.get('title'), line.get('line_idx'))

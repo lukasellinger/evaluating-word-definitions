@@ -27,6 +27,14 @@ class EvidenceSelector(ABC):
         return self.select_evidences_batch(batch, evidence_batch, max_evidence_count, top_k)
 
     @abstractmethod
+    def set_min_similarity(self, min_similarity: float):
+        pass
+
+    @abstractmethod
+    def set_evidence_selection(self, evidence_selection: str):
+        pass
+
+    @abstractmethod
     def select_evidences(self, claim: Dict, evidences: List[Dict]):
         """
         Select evidences for a single claim.
@@ -69,6 +77,12 @@ class ModelEvidenceSelector(EvidenceSelector):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = None
+
+    def set_min_similarity(self, min_similarity: float):
+        self.min_similarity = min_similarity
+
+    def set_evidence_selection(self, evidence_selection: str):
+        self.evidence_selection = evidence_selection
 
     def load_model(self):
         if self.model is None:

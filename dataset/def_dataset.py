@@ -18,15 +18,18 @@ class Fact(Enum):
 
     SUPPORTED = 0
     NOT_SUPPORTED = 1
+    NOT_ENOUGH_INFO = 2
+    SUPPORTS = 0
+    REFUTES = 1
 
     def to_factuality(self) -> int:
         """Convert itself to a measurement."""
         factuality = {
             Fact.SUPPORTED: 1,
-            Fact.NOT_SUPPORTED: 0
-            #Fact.SUPPORTS: 1,
-            #Fact.REFUTES: 0,
-            #Fact.NOT_ENOUGH_INFO: -1
+            Fact.NOT_SUPPORTED: 0,
+            Fact.SUPPORTS: 1,
+            Fact.REFUTES: 0,
+            Fact.NOT_ENOUGH_INFO: 0
         }
         return factuality[self]
 
@@ -165,7 +168,7 @@ class DefinitionDataset(Dataset):
                 claim_mask.append(i)
                 all_input_ids.append(self.tokenizer.encode(hypothesis, data['claim']))
 
-            if data['label'] == 'SUPPORTS':
+            if data['label'] == 'SUPPORTED':
                 all_labels.append(Fact.SUPPORTED.to_factuality())
             else:
                 all_labels.append(Fact.NOT_SUPPORTED.to_factuality())
