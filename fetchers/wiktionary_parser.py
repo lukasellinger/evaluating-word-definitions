@@ -28,5 +28,5 @@ class WiktionaryParser:
                 if len(glosses) > 1:
                     topics = sense.get('topics', [])
                     tags = sense.get('tags', [])
-                    all_glosses.append(f'{entry.get("word")}: {glosses[1]}')
+                    all_glosses.append(f'{entry.get("word")} means: {glosses[1]}')
         return all_glosses

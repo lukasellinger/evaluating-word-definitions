@@ -7,8 +7,10 @@ from losses.custom_huber_loss import CustomHuberLoss
 
 
 class AtomicFactsLoss(nn.Module):
-    def __init__(self, delta=0.66, huber_delta=0.3):
+    def __init__(self, delta=0.66, huber_delta=0.3, pos_weight=1, neg_weight=1):
         super(AtomicFactsLoss, self).__init__()
+        self.pos_weight = pos_weight
+        self.neg_weight = neg_weight
         self.delta = delta
         self.huber_delta = huber_delta
         self.huber_loss = CustomHuberLoss(delta=huber_delta)
@@ -29,6 +31,6 @@ class AtomicFactsLoss(nn.Module):
         loss_false = self.huber_loss(loss_false, torch.zeros_like(loss_false))
 
         # Combine losses
-        loss = y * loss_true + (1 - y) * loss_false
+        loss = y * self.pos_weight * loss_true + (1 - y) * self.neg_weight * loss_false
 
         return loss.mean()

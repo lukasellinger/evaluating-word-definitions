@@ -2,9 +2,11 @@ from collections import defaultdict
 
 from tqdm import tqdm
 
-from claim_splitters.claim_splitter import T5SplitRephrase
 from database.db_retriever import FeverDocDB
 from more_itertools import chunked
+
+from pipeline_module.claim_splitter import T5SplitRephraseSplitter
+
 
 def main(table, fact_table, claim_col):
     CREATE_ATOMIC_FACTS = f"""
@@ -30,10 +32,10 @@ def main(table, fact_table, claim_col):
         db.write(CREATE_ATOMIC_FACTS)
         claims = [f'{entry[0]}: {entry[1]}' for entry in db.read(f"""SELECT DISTINCT {word_col}, {claim_col} FROM {table}""")]
 
-    splitter = T5SplitRephrase()
+    splitter = T5SplitRephraseSplitter()
     stats = defaultdict(int)
     for batch in tqdm(chunked(claims, 4)):
-        output = splitter.get_atomic_claims_batch(batch)
+        output = splitter(batch)
 
         with FeverDocDB() as db:
             for claim in output:
