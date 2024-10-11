@@ -276,26 +276,52 @@ class FeverPipeline:
         self.evid_selector = evid_selector
         self.stm_verifier = stm_verifier
 
-    def verify_test_batch(self, batch: List[Dict]):
+    def get_gold_evids(self, batch):
+        filtered_batch = []
+        evid_batch = []
+        for entry in batch:
+            if entry['label'] == 'NOT_ENOUGH_INFO':
+                continue
+            selected_evid_lines = entry['selected_evidence_lines'].split(',')
+            evid = self.prepare_evid(entry)[0]
+            evidences = []
+            for line in selected_evid_lines:
+                sent_idx = evid['line_indices'].index(line)
+                evidences.append({'title': evid['title'],
+                                  'line_idx': line,
+                                  'text': evid['lines'][sent_idx]})
+            filtered_batch.append(entry)
+            evid_batch.append(evidences)
+        return filtered_batch, evid_batch
+
+    def prepare_evid(self, entry):
+        lines = process_lines(entry['lines'])
+        processed_lines = []
+        line_numbers = []
+        for line in lines.split('\n'):
+            line = process_sentence_wiki(line)
+            line_number, text = split_text(line)
+            processed_lines.append(text)
+            line_numbers.append(line_number)
+        return [{'title': entry['document_id'],
+                       'line_indices': line_numbers,
+                       'lines': processed_lines}]
+
+    def verify_test_batch(self, batch: List[Dict], gold_evidence: bool = False):
         """
         Verify a test batch of claims.
 
         :param batch: List of dictionaries containing claims.
         :return: Evidences for the batch.
         """
-        evids = []
-        for entry in batch:
-            lines = process_lines(entry['lines'])
-            processed_lines = []
-            line_numbers = []
-            for line in lines.split('\n'):
-                line = process_sentence_wiki(line)
-                line_number, text = split_text(line)
-                processed_lines.append(text)
-                line_numbers.append(line_number)
-            evids.append([{'title': entry['document_id'],
-                           'line_indices': line_numbers,
-                           'lines': processed_lines}])
+        if gold_evidence:
+            batch, evids_batch = self.get_gold_evids(batch)
+        else:
+            evids = []
+            for entry in batch:
+                evid = self.prepare_evid(entry)
+                evids.append(evid)
+            evids_batch = self.evid_selector([{'text': entry['claim']} for entry in batch], evids)
 
         if self.claim_splitter:
             split_type = type(self.claim_splitter).__name__.split('Splitter')[0]
@@ -304,7 +330,6 @@ class FeverPipeline:
         else:
             processed_batch = [{'text': entry['claim']} for entry in batch]
 
-        evids_batch = self.evid_selector(processed_batch, evids)
         factualities = self.stm_verifier(processed_batch, evids_batch)
 
         outputs, fever_instances = [], []
@@ -312,7 +337,6 @@ class FeverPipeline:
             outputs.append({'id': entry.get('id'),
                             'word': entry.get('document_id'),
                             'claim': entry.get('claim'),
-                            'connected_claim': entry.get('connected_claim'),
                             'label': entry.get('label'),
                             **factuality,
                             'evidence': evidence
@@ -325,7 +349,7 @@ class FeverPipeline:
                                                          for line in evidence]))
         return outputs, fever_instances
 
-    def verify_test_dataset(self, dataset, batch_size: int = 4, output_file_name: str = ''):
+    def verify_test_dataset(self, dataset, batch_size: int = 4, output_file_name: str = '', gold_evidence: bool = False):
         """
         Verify a test dataset.
 
@@ -336,7 +360,7 @@ class FeverPipeline:
         outputs, gt_labels, pr_labels, fever_instances = [], [], [], []
         for i in tqdm(range(0, len(dataset), batch_size)):
             batch = dataset[i:i + batch_size]
-            output, fever_instance = self.verify_test_batch(batch)
+            output, fever_instance = self.verify_test_batch(batch, gold_evidence=gold_evidence)
 
             for entry in output:
                 assert entry['predicted'] != -1, 'prediction == -1 can not happen for FeverPipeline'

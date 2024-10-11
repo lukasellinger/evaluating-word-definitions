@@ -44,7 +44,7 @@ def is_strictly_correct(instance, max_evidence=None, use_gold_labels=False):
     # Strict evidence matching is only for NEI class
     check_predicted_evidence_format(instance)
 
-    if instance["label"].upper() != "NOT_ENOUGH_INFO" and is_correct_label(instance, use_gold_labels):
+    if instance["label"].upper() != "NOT_ENOUGH_INFO" and instance['predicted_evidence'] and is_correct_label(instance, use_gold_labels):
         assert 'predicted_evidence' in instance, "Predicted evidence must be provided for strict scoring"
 
         if max_evidence is None:
@@ -57,8 +57,8 @@ def is_strictly_correct(instance, max_evidence=None, use_gold_labels=False):
             if all([actual_sent in instance["predicted_evidence"][:max_evidence] for actual_sent in actual_sentences]):
                 return True
 
-    # If the class is NEI, we don't score the evidence retrieval component
-    elif instance["label"].upper() == "NOT_ENOUGH_INFO" and is_correct_label(instance, use_gold_labels):
+    # If the class is NEI or our topic modeling set it to not supported, we don't score the evidence retrieval component
+    elif (instance["label"].upper() == "NOT_ENOUGH_INFO" or not instance['predicted_evidence']) and is_correct_label(instance, use_gold_labels):
         return True
 
     return False
