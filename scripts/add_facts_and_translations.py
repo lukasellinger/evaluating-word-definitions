@@ -1,9 +1,9 @@
 from tqdm import tqdm
 
-from claim_splitters.claim_splitter import MixtralSplitter
 from config import HF_READ_TOKENS
 from database.db_retriever import FeverDocDB
 from general_utils.translation import Translator
+from pipeline_module.claim_splitter import MixtralSplitter
 
 
 def main(table, fact_table, explanation_table):

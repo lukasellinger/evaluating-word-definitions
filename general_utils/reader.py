@@ -54,6 +54,7 @@ class JSONReader(Reader):
     def _write(self, file, dictionary):
         json.dump(dictionary, file)
 
+
 class LineReader(Reader):
     """Line reader for files."""
 

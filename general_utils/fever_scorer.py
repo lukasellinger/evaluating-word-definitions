@@ -6,7 +6,11 @@
 """Official scorer of the FEVER task."""
 
 
-def check_predicted_evidence_format(instance):
+def check_predicted_evidence_format(instance: dict):
+    """
+    Checks if the predicted evidence is in the correct format, which must be a list of
+    (page, line) lists.
+    """
     if 'predicted_evidence' in instance.keys() and len(instance['predicted_evidence']):
         assert all(isinstance(prediction, list)
                    for prediction in instance["predicted_evidence"]), \
@@ -26,6 +30,10 @@ def check_predicted_evidence_format(instance):
 
 
 def is_correct_label(instance, use_gold_labels=False):
+    """
+    Checks whether the predicted label matches the actual label, or
+    optionally uses the gold label for comparison.
+    """
     label = instance["label"].upper()
     predicted_label = instance["predicted_label"].upper()
 
@@ -41,6 +49,11 @@ def is_correct_label(instance, use_gold_labels=False):
 
 
 def is_strictly_correct(instance, max_evidence=None, use_gold_labels=False):
+    """
+    Determines if the predicted evidence is strictly correct by checking if all actual sentences are
+    found within the predicted evidence, given the max evidence allowed.
+    """
+
     # Strict evidence matching is only for NEI class
     check_predicted_evidence_format(instance)
 
@@ -65,6 +78,9 @@ def is_strictly_correct(instance, max_evidence=None, use_gold_labels=False):
 
 
 def evidence_macro_precision(instance, max_evidence=None):
+    """
+    Calculates the macro precision of the evidence by checking how many of the predicted evidence
+    pieces match the actual evidence."""
     this_precision = 0.0
     this_precision_hits = 0.0
 
@@ -85,6 +101,10 @@ def evidence_macro_precision(instance, max_evidence=None):
 
 
 def evidence_macro_recall(instance, max_evidence=None):
+    """
+    Calculates the macro recall of the evidence by determining if the entire group of actual evidence
+    is recalled in the predicted evidence.
+    """
     # We only want to score F1/Precision/Recall of recalled evidence for NEI claims
     if instance["label"].upper() != "NOT_ENOUGH_INFO":
         # If there's no evidence to predict, return 1
@@ -104,6 +124,10 @@ def evidence_macro_recall(instance, max_evidence=None):
 
 
 def fever_score(predictions, actual=None, max_evidence=5, use_gold_labels=False):
+    """
+    Computes the FEVER score, including strict score, label accuracy, precision, recall, and F1,
+    for a given set of predictions and (optionally) actual data.
+    """
     correct = 0
     strict = 0
 
@@ -154,7 +178,7 @@ def fever_score(predictions, actual=None, max_evidence=5, use_gold_labels=False)
 
 
 if __name__ == "__main__":
-    instance1 = {"label": "REFUTES", "predicted_label": "REFUTES",
+    instance1 = {"label": "NOT_ENOUGH_INFO", "predicted_label": "NOT_SUPPORTED",
                  "predicted_evidence": [  # is not strictly correct - missing (page2,2)
                      ["page1", 1]  # page name, line number
                  ],
@@ -183,6 +207,15 @@ if __name__ == "__main__":
                  }
 
     predictions = [instance1, instance2]
+    predictions = [
+ {'label': 'NOT_ENOUGH_INFO',
+  'predicted_label': 'NOT_SUPPORTED',
+  'predicted_evidence': [['Adobe_Photoshop', 0],
+   ['Adobe_Photoshop', 19],
+   ['Adobe_Photoshop', 15]],
+  'evidence': []}
+ ]
+
     strict_score, label_accuracy, precision, recall, f1 = fever_score(predictions)
 
     print(strict_score)  # 0.5

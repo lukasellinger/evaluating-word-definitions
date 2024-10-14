@@ -1,29 +1,56 @@
+"""Module for translators."""
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import List
 
 import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 
 class Translator(ABC):
-    def __call__(self, batch: List[Dict]):
+    """
+    Abstract base class for a Translator. Defines the structure for translating words and texts.
+    """
+
+    def __call__(self, batch: List[dict]):
         return self.translate_word_text_batch(batch)
 
     @abstractmethod
-    def translate_word_text(self, word: str, text: str):
-        pass
+    def translate_word_text(self, word: str, text: str) -> dict:
+        """
+         Translates a single word and its associated text.
+
+         :param word: The word to translate.
+         :param text: The text associated with the word.
+         :return: Dict containing the translated word and text.
+         """
 
     @abstractmethod
-    def translate_word_text_batch(self, batch: List[Dict]):
-        pass
+    def translate_word_text_batch(self, batch: List[dict]) -> List[dict]:
+        """
+        Translates a batch of words and their associated texts.
+
+        :param batch: A batch of dictionaries, each containing 'word' and 'text'.
+        :return: The translated batch as a list of dictionaries.
+        """
 
     @abstractmethod
-    def translate_text(self, text: str):
-        pass
+    def translate_text(self, text: str) -> str:
+        """
+        Translates a given text.
+
+        :param text: The text to translate.
+        :return: The translated text.
+        """
 
     @abstractmethod
-    def translate_batch(self, batch: List[str]):
-        pass
+    def translate_batch(self, batch: List[str], num_translations: int = 5) -> List[List[str]]:
+        """
+        Translates a batch of strings (texts).
+
+        :param batch: A list of texts to translate.
+        :param num_translations: How many translations to return
+        :return: The translated batch.
+        """
 
 
 class OpusMTTranslator(Translator):
@@ -32,7 +59,6 @@ class OpusMTTranslator(Translator):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = None
-
 
     def load_model(self):
         if self.model is None:
@@ -46,28 +72,25 @@ class OpusMTTranslator(Translator):
             torch.cuda.empty_cache()
             self.model = None
 
-    def translate_word_text(self, word: str, text: str):
-        return self.translate_word_text_batch([{'word': word, 'text': text}])
+    def translate_word_text(self, word: str, text: str) -> dict:
+        return self.translate_word_text_batch([{'word': word, 'text': text}])[0]
 
-    def translate_word_text_batch(self, batch: List[Dict]):
+    def translate_word_text_batch(self, batch: List[dict]):
         if not self.model:
             self.load_model()
 
-        connected_batch = [f"{entry.get('word')}: {entry.get('text')}" for entry in batch]
-        batch_translations = self.translate_batch(connected_batch)
+        batch_translations = self.translate_batch([f"{entry.get('word')}: {entry.get('text')}"
+                                                   for entry in batch])
 
-        translated_batch = []
-        fallback_needed = []
-
+        translated_batch, fallback_needed = [], []
         for entry, batch_entry in zip(batch, batch_translations):
             translation_split = next(
                 (translation.split(': ') for translation in batch_entry if ': ' in translation),
                 None)
 
             if translation_split:
-                translated_word, translated_text = translation_split[0], ': '.join(
-                    translation_split[1:])
-                translated_batch.append({'word': translated_word, 'text': translated_text})
+                translated_batch.append({'word': translation_split[0], 'text': ': '.join(
+                    translation_split[1:])})
             else:
                 fallback_needed.append(entry)
 
@@ -86,14 +109,23 @@ class OpusMTTranslator(Translator):
 
         return translated_batch
 
-    def translate_text(self, text: str):
+    def translate_text(self, text: str) -> str:
         return self.translate_batch([text], num_translations=1)[0][0]
 
-    def translate_batch(self, batch: List[str], num_translations: int = 5):
+    def translate_batch(self, batch: List[str], num_translations: int = 5) -> List[List[str]]:
         return self.get_top_n_translations(batch, num_translations=num_translations)
 
     def get_top_n_translations(self, batch: List[str], num_translations: int = 5,
-                               max_length: int = 100, num_beams: int = 20):
+                               max_length: int = 100, num_beams: int = 20) -> List[List[str]]:
+        """
+        Retrieves the top N translations for a batch of texts.
+
+        :param batch: A list of texts to translate.
+        :param num_translations: The number of translations to return for each text (default: 5).
+        :param max_length: The maximum length of the translation (default: 100 tokens).
+        :param num_beams: The number of beams for beam search (default: 20).
+        :return: A list of lists containing the top N translations for each input text.
+        """
         inputs = self.tokenizer(batch, return_tensors='pt', padding=True).to(self.device)
 
         outputs = self.model.generate(

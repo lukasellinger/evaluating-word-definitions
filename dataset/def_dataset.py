@@ -33,6 +33,7 @@ class Fact(Enum):
         }
         return factuality[self]
 
+
 def process_lines(lines):
     """Removes empty lines."""
     return re.sub(r'(\d+\t\n)|(\n\d+\t$)', '', lines)
@@ -60,7 +61,7 @@ def process_data(data, max_length=2000, k=3):
         return len(' '.join(text).split()) < max_length and all(
             len(group.split()) <= k for group in evidence_lines.split(';'))
 
-    return data.filter(lambda i: filter_entry(i))
+    return [entry for entry in data if filter_entry(entry)]
 
 
 def build_attention_masks(lst: List[List], pad_token=0, attention_mask_pad=0) -> List[List]:
@@ -120,9 +121,17 @@ class DefinitionDataset(Dataset):
         return self.data[idx]
 
     def collate_fn(self, batch):
+        """
+        Prepares batched input for different models based on the current mode of operation.
+
+        This method processes the input batch for the models 'claim_verification' and 'evidence_selection'.
+        Depending on the model type and mode ('train' or 'validation'), it returns the necessary input
+        structures for training or validation.
+        """
         if self.model == 'claim_verification':
             model_inputs, labels, hypothesis_lengths = self.get_batch_input_claim_verification(batch)
         elif self.model == 'evidence_selection':
+            hypothesis_lengths = None
             model_inputs, labels = self.get_batch_input_evidence_selection(batch)
         else:
             raise ValueError(
@@ -130,7 +139,8 @@ class DefinitionDataset(Dataset):
 
         if self.mode == "train":
             return {"model_input": model_inputs, "labels": labels}
-        elif self.mode == "validation":
+
+        if self.mode == "validation":
             documents = [i["document_id"] for i in batch]
             evidence_lines = [i["evidence_lines"] for i in batch]
             claim_ids = [i["id"] for i in batch]
