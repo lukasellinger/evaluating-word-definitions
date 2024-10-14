@@ -1,7 +1,6 @@
 from copy import deepcopy
 from typing import Dict, List, Optional
 
-from datasets import load_dataset
 from sklearn.metrics import classification_report
 from tqdm import tqdm
 
@@ -9,13 +8,12 @@ from dataset.def_dataset import Fact, process_lines, split_text
 from general_utils.fever_scorer import fever_score
 from general_utils.reader import JSONLineReader
 from general_utils.utils import process_sentence_wiki, build_fever_instance
-from pipeline_module.claim_splitter import ClaimSplitter, DisSimSplitter
+from pipeline_module.claim_splitter import ClaimSplitter
 from pipeline_module.evidence_fetcher import EvidenceFetcher, WikipediaEvidenceFetcher
 from pipeline_module.evidence_selector import EvidenceSelector, ModelEvidenceSelector
 from pipeline_module.sentence_connector import SentenceConnector, ColonSentenceConnector
-from pipeline_module.statement_verifier import StatementVerifier, ModelStatementVerifier, \
-    ModelEnsembleStatementVerifier
-from pipeline_module.translator import Translator, OpusMTTranslator
+from pipeline_module.statement_verifier import StatementVerifier, ModelEnsembleStatementVerifier
+from pipeline_module.translator import Translator
 
 
 class Pipeline:
@@ -381,13 +379,6 @@ if __name__ == "__main__":
     evid_selector = ModelEvidenceSelector(evidence_selection='mmr')
     stm_verifier = ModelEnsembleStatementVerifier(
         model_name='MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7')
-    #lang = 'de'
-
-    # raw_dataset = load_dataset("lukasellinger/fever_evidence_selection-v1").get('dev')
-    # fever_pipeline = FeverPipeline(claim_splitter=None,
-    #                                evid_selector=evid_selector,
-    #                                stm_verifier=stm_verifier)
-    # fever_pipeline.verify_test_dataset(raw_dataset)
     offline_evid_fetcher = WikipediaEvidenceFetcher()
     pipeline = Pipeline(None, None, None, offline_evid_fetcher, evid_selector,
                          stm_verifier, 'en')
@@ -396,8 +387,3 @@ if __name__ == "__main__":
                                           'in_wiki': 'Yes',
                                     'connected_claim': 'A glacier is an ice mass resulting from snow with a clearly defined catchment area, which moves independently due to the slope, structure of the ice, temperature, and the shear stress resulting from the mass of the ice and the other factors.'},
                                      ])
-    # print(result)
-    # #result = pipeline.verify_batch([{'word': 'ERTU', 'text': 'die staatliche Rundfunkgesellschaft Ägyptens', 'search_word': 'ertu'}])
-    # #print(result)
-    # dataset = load_dataset('lukasellinger/german_dpr-claim_verification', split='test')
-    # pipeline.verify_test_dataset(dataset, 4)

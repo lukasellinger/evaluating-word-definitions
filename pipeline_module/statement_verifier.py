@@ -27,7 +27,7 @@ class StatementVerifier(ABC):
         return self.verify_statement_batch(statements, evidence_batch)
 
     @abstractmethod
-    def set_hypothesis_sent_order(self, sent_order: str):
+    def set_premise_sent_order(self, sent_order: str):
         pass
 
     @abstractmethod
@@ -60,7 +60,7 @@ class ModelStatementVerifier(StatementVerifier):
 
     MODEL_NAME = 'lukasellinger/claim_verification_model-v5'
 
-    def __init__(self, model_name: str = '', hypothesis_sent_order: str = 'reverse'):
+    def __init__(self, model_name: str = '', premise_sent_order: str = 'reverse'):
         """
         Initialize the ModelStatementVerifier with the specified model.
 
@@ -70,14 +70,14 @@ class ModelStatementVerifier(StatementVerifier):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = None
-        self.hypothesis_sent_order = None
-        self.set_hypothesis_sent_order(hypothesis_sent_order)
+        self.premise_sent_order = None
+        self.set_premise_sent_order(premise_sent_order)
 
-    def set_hypothesis_sent_order(self, sent_order: str):
+    def set_premise_sent_order(self, sent_order: str):
         if sent_order not in {'reverse', 'top_last', 'keep'}:
             raise ValueError(
-                "hypothesis_sent_order needs to be either 'reverse', 'top_last', or 'keep'")
-        self.hypothesis_sent_order = sent_order
+                "premise_sent_order needs to be either 'reverse', 'top_last', or 'keep'")
+        self.premise_sent_order = sent_order
 
     def load_model(self):
         if self.model is None:
@@ -102,17 +102,17 @@ class ModelStatementVerifier(StatementVerifier):
         return self.verify_statement_batch([statement], [evidence])[0]
 
     def _order_hypothesis(self, hypo_sents: List[str]):
-        if self.hypothesis_sent_order not in {'reverse', 'top_last', 'keep'}:
+        if self.premise_sent_order not in {'reverse', 'top_last', 'keep'}:
             raise ValueError(
-                "hypothesis_sent_order needs to be either 'reverse', 'top_last', or 'keep'")
+                "premise_sent_order needs to be either 'reverse', 'top_last', or 'keep'")
         if len(hypo_sents) == 0:
             return ''
 
-        if self.hypothesis_sent_order == 'reverse':
+        if self.premise_sent_order == 'reverse':
             return ' '.join([sentence for sentence in hypo_sents[::-1]])
-        elif self.hypothesis_sent_order == 'top_last':
+        elif self.premise_sent_order == 'top_last':
             return ' '.join([sentence for sentence in hypo_sents[1:] + [hypo_sents[0]]])
-        elif self.hypothesis_sent_order == 'keep':
+        elif self.premise_sent_order == 'keep':
             return ' '.join(hypo_sents)
 
     def verify_statement_batch(self, statements: List[Dict], evids_batch: List[List[str]]):
@@ -165,13 +165,13 @@ class ModelEnsembleStatementVerifier(ModelStatementVerifier):
 
     MODEL_NAME = 'lukasellinger/claim_verification_model-v5'
 
-    def __init__(self, model_name: str = '', hypothesis_sent_order: str = 'reverse'):
+    def __init__(self, model_name: str = '', premise_sent_order: str = 'reverse'):
         """
         Initialize the ModelStatementVerifier with the specified model.
 
         :param model_name: Name of the model to use. Defaults to a pre-defined model.
         """
-        super().__init__(model_name, hypothesis_sent_order)
+        super().__init__(model_name, premise_sent_order)
         from transformers import pipeline
         self.classifier = pipeline("zero-shot-classification",
                                    model="facebook/bart-large-mnli")
@@ -273,7 +273,7 @@ class ModelEnsembleStatementVerifier(ModelStatementVerifier):
 
 
 if __name__ == "__main__":
-    verifier = ModelStatementVerifier(hypothesis_sent_order='top_last')
+    verifier = ModelStatementVerifier(premise_sent_order='top_last')
     results = verifier.verify_statement_batch(
         [{'text': 'Sun is hot.'}, {'text': 'Sun is cold.'}],
         [{'text': ['Sun is very very very hot.']}, {'text': ['Sun is very very very hot.']}]

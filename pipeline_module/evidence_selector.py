@@ -82,6 +82,8 @@ class ModelEvidenceSelector(EvidenceSelector):
         self.min_similarity = min_similarity
 
     def set_evidence_selection(self, evidence_selection: str):
+        if evidence_selection not in ['mmr', 'top']:
+            raise ValueError('evidence_selection must be either mmr or top.')
         self.evidence_selection = evidence_selection
 
     def load_model(self):
