@@ -1,6 +1,7 @@
+"""Module for claim splitters."""
 import re
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import List
 
 import requests
 import torch
@@ -14,29 +15,47 @@ from general_utils.utils import sentence_simplification
 
 
 class ClaimSplitter(ABC):
+    """
+    Abstract base class for claim splitters.
+
+    Defines the interface for claim splitting, providing methods for both
+    single text and batch processing of atomic claims.
+    """
 
     def __call__(self, batch):
         return self.get_atomic_claims_batch(batch)
 
     @abstractmethod
-    def get_atomic_claims(self, text: str) -> List[str]:
-        pass
+    def get_atomic_claims(self, text: str) -> dict:
+        """
+        Obtain atomic claims from a single text.
+
+        :param text: The input text to split into atomic claims.
+        :return: A list of atomic claims.
+        """
 
     @abstractmethod
-    def get_atomic_claims_batch(self, texts: List[str]) -> List[List[str]]:
-        pass
+    def get_atomic_claims_batch(self, texts: List[str]) -> List[dict]:
+        """
+        Obtain atomic claims from a batch of texts.
+
+        :param texts: List of texts to split into atomic claims.
+        :return: A list of lists, where each list contains atomic claims for a given text.
+        """
 
 
 class DisSimSplitter(ClaimSplitter):
-    def get_atomic_claims(self, text: str) -> Dict:
+    """DisSim Claim Splitter https://github.com/Lambda-3/DiscourseSimplification"""
+    def get_atomic_claims(self, text: str) -> dict:
         output = sentence_simplification([text])
         return output[0]
 
-    def get_atomic_claims_batch(self, texts: List[str]) -> List[Dict]:
+    def get_atomic_claims_batch(self, texts: List[str]) -> List[dict]:
         return sentence_simplification(texts)
 
 
 class MixtralSplitter(ClaimSplitter):
+    """unikei/t5-base-split-and-rephrase Claim Splitter"""
     API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
     HF_TOKEN = HF_READ_TOKENS[0]
 
@@ -46,10 +65,10 @@ class MixtralSplitter(ClaimSplitter):
         if hf_token:
             self.HF_TOKEN = hf_token
 
-    def get_atomic_claims_batch(self, texts: List[str]) -> List[Dict]:
+    def get_atomic_claims_batch(self, texts: List[str]) -> List[dict]:
         return [self.get_atomic_claims(text) for text in texts]
 
-    def get_atomic_claims(self, text: str) -> Dict:
+    def get_atomic_claims(self, text: str) -> dict:
         output = self.query({'inputs': self.get_prompt(text),
                              'parameters': {'temperature': 0.01, 'return_full_text': False}},
                             token=self.HF_TOKEN)
@@ -125,6 +144,7 @@ class MixtralSplitter(ClaimSplitter):
 
 
 class T5SplitRephraseSplitter(ClaimSplitter):
+    """unikei/t5-base-split-and-rephrase Claim Splitter"""
 
     def __init__(self):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -143,10 +163,10 @@ class T5SplitRephraseSplitter(ClaimSplitter):
             torch.cuda.empty_cache()
             self.model = None
 
-    def get_atomic_claims(self, text: str) -> Dict:
+    def get_atomic_claims(self, text: str) -> dict:
         return self.get_atomic_claims_batch([text])[0]
 
-    def get_atomic_claims_batch(self, texts: List[str]) -> List[Dict]:
+    def get_atomic_claims_batch(self, texts: List[str]) -> List[dict]:
         if not self.model:
             self.load_model()
 
@@ -165,16 +185,16 @@ class T5SplitRephraseSplitter(ClaimSplitter):
 
 
 class FactscoreSplitter(ClaimSplitter):
-
+    """FActScore Splitter from https://aclanthology.org/2023.emnlp-main.741/"""
     def __init__(self, api_key=None):
         self.openai_fetcher = OpenAiFetcher(api_key=api_key)
         self.prompt_generator = FactScoreFactGenerator(PROJECT_DIR.joinpath('factscore/demos'),
                                                        is_bio=False)
 
-    def get_atomic_claims(self, text: str) -> Dict:
+    def get_atomic_claims(self, text: str) -> dict:
         return self.get_atomic_claims_batch([text])[0]
 
-    def get_atomic_claims_batch(self, texts: List[str]) -> List[Dict]:
+    def get_atomic_claims_batch(self, texts: List[str]) -> List[dict]:
         model = "gpt-3.5-turbo-instruct"
         temperature = 0.7
         max_tokens = 512

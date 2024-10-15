@@ -15,6 +15,7 @@ from models.evidence_selection_model import EvidenceSelectionModel
 import torch.nn.functional as F
 
 from general_utils.utils import calc_bin_stats, plot_graph
+from training_loop_tests.utils import plot_stats
 
 dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id, docs.text, 
                                          docs.lines, group_concat(dd.evidence_sentence_id) as evidence_lines
@@ -113,17 +114,7 @@ f1_weighted = f1_score(gt_labels, pr_labels, average='weighted')
 f1_macro = f1_score(gt_labels, pr_labels, average='macro')
 top_k_acc = sum(all_top_k_hits) / len(train_dataset)
 
-if len(claim_lenghts) > 0:
-    bin_stats = calc_bin_stats(gt_labels, pr_labels, claim_lenghts)
-    print(bin_stats)
-    plot_graph(list(bin_stats.keys()), [entry['acc'] for entry in bin_stats.values()],
-               x_label='Claim Length', y_label='Acc')
-
-if len(claim_lenghts) > 0:
-    bin_stats = calc_bin_stats(gt_labels, pr_labels, doc_lenghts)
-    print(bin_stats)
-    plot_graph(list(bin_stats.keys()), [entry['acc'] for entry in bin_stats.values()],
-               x_label='Doc Length', y_label='Acc')
+plot_stats(claim_lenghts, doc_lenghts, 'Doc Length', gt_labels, pr_labels)
 
 print(acc)
 print(recall)

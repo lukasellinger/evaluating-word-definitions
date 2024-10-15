@@ -1,3 +1,4 @@
+"""Module for Evidence Selector."""
 from abc import ABC, abstractmethod
 from typing import List, Dict, Tuple
 
@@ -16,7 +17,7 @@ class EvidenceSelector(ABC):
     """
 
     def __call__(self, batch: List[Dict], evidence_batch: List[List[Dict]],
-                 max_evidence_count: int = 3, top_k: int = 3):
+                 max_evidence_count: int = 3, top_k: int = 3) -> List[List[Dict]]:
         """
         Select evidences for a batch of claims.
 
@@ -35,7 +36,7 @@ class EvidenceSelector(ABC):
         pass
 
     @abstractmethod
-    def select_evidences(self, claim: Dict, evidences: List[Dict]):
+    def select_evidences(self, claim: Dict, evidences: List[Dict]) -> List[Dict]:
         """
         Select evidences for a single claim.
 
@@ -47,7 +48,7 @@ class EvidenceSelector(ABC):
 
     @abstractmethod
     def select_evidences_batch(self, batch: List[Dict], evidence_batch: List[List[Dict]],
-                               max_evidence_count: int = 3, top_k: int = 3):
+                               max_evidence_count: int = 3, top_k: int = 3) -> List[List[Dict]]:
         """
         Select evidences for a batch of claims.
 
@@ -99,7 +100,7 @@ class ModelEvidenceSelector(EvidenceSelector):
             torch.cuda.empty_cache()
             self.model = None
 
-    def select_evidences(self, claim: Dict, evidences: List[Tuple[str, str, str]]):
+    def select_evidences(self, claim: Dict, evidences: List[Dict]) -> List[Dict]:
         """
         Select evidences for a single claim.
 
@@ -110,8 +111,8 @@ class ModelEvidenceSelector(EvidenceSelector):
         return self.select_evidences_batch([claim], [evidences])[0]
 
     def select_evidences_batch(self, batch: List[Dict],
-                               evidence_batch: List[List[Tuple[str, str, str]]],
-                               max_evidence_count: int = 3, top_k: int = 3):
+                               evidence_batch: List[List[Dict]],
+                               max_evidence_count: int = 3, top_k: int = 3) -> List[List[Dict]]:
         """
         Select evidences for a batch of claims.
 
@@ -128,8 +129,8 @@ class ModelEvidenceSelector(EvidenceSelector):
         top_sentences_batch = self._select_top_sentences(batch, ranked_evidence_batch, top_k)
         return top_sentences_batch
 
-    def _rank_evidences(self, batch: List[Dict], evidence_batch: List[List[Tuple[str, str, str]]],
-                        max_evidence_count: int):
+    def _rank_evidences(self, batch: List[Dict], evidence_batch: List[List[Dict]],
+                        max_evidence_count: int) -> List[List[Dict]]:
         ranked_evidence_batch = []
         for claim, evidences in zip(batch, evidence_batch):
             if len(evidences) > max_evidence_count:
@@ -141,7 +142,9 @@ class ModelEvidenceSelector(EvidenceSelector):
                 ranked_evidence_batch.append(evidences)
         return ranked_evidence_batch
 
-    def mmr(self, sentence_similarities, top_n=3, lambda_param=0.7):
+    def mmr(self,
+            sentence_similarities: List[Dict],
+            top_n: int =3, lambda_param: float = 0.7) -> List[Dict]:
         """
         Apply Maximal Marginal Relevance (MMR) to select top_n sentences.
 
@@ -184,7 +187,7 @@ class ModelEvidenceSelector(EvidenceSelector):
         return selected_elements
 
     def _select_top_sentences(self, batch: List[Dict], ranked_evidence_batch: List[List[Dict]],
-                              top_k: int):
+                              top_k: int) -> List[List[Dict]]:
         top_sentences_batch = []
         for claim, evidences in zip(batch, ranked_evidence_batch):
             statement_model_input = self.tokenizer(claim['text'], return_tensors='pt').to(
@@ -213,8 +216,9 @@ class ModelEvidenceSelector(EvidenceSelector):
             top_sentences_batch.append(top_sentences)
         return top_sentences_batch
 
-    def _compute_sentence_similarities(self, page: str, line_numbers: List[str],
-                                       sentences: List[str], statement_embeddings: torch.Tensor):
+    def _compute_sentence_similarities(self,
+                                       page: str, line_numbers: List[str], sentences: List[str],
+                                       statement_embeddings: torch.Tensor) -> List[Dict]:
         encoded_sequence, sentence_mask = self._encode_sentences(sentences)
         sentences_model_input = {
             'input_ids': torch.tensor(encoded_sequence).unsqueeze(0).to(self.device),
@@ -227,7 +231,7 @@ class ModelEvidenceSelector(EvidenceSelector):
         return [{'title': page, 'line_idx': line_num, 'text': sentence, 'sim': sim, 'embedding': embedding} for
                 line_num, sentence, sim, embedding in zip(line_numbers, sentences, claim_similarities, sentence_embeddings)]
 
-    def _encode_sentences(self, sentences: List[str]):
+    def _encode_sentences(self, sentences: List[str]) -> Tuple[List[int], List[List[int]]]:
         encoded_sequence = []
         sentence_mask = []
         for i, sentence in enumerate(sentences):
@@ -242,7 +246,7 @@ class ModelEvidenceSelector(EvidenceSelector):
         return encoded_sequence, sentence_masks
 
     @staticmethod
-    def _get_top_unique_sentences(sorted_sentences: List[tuple], top_k: int = 3):
+    def _get_top_unique_sentences(sorted_sentences: List[Dict], top_k: int = 3) -> List[Dict]:
         unique_sentences = []
         seen_sentences = set()
         for entry in sorted_sentences:
@@ -257,8 +261,6 @@ class ModelEvidenceSelector(EvidenceSelector):
 if __name__ == "__main__":
     selector = ModelEvidenceSelector()
     print(selector.select_evidences_batch(
-        [{'text': 'sun is shining.'}, {'text': 'I like it.'}],
-        [[('Page1', '0', 'Sun was good'), ('Page1', '1', 'shining light'),
-          ('Page1', '2', 'Hi, how are you'), ('Page1', '3', 'Yes of course')],
-         [('Page2', '0', 'I hate you.')]]
+        [{'text': 'sun is shining.'}],
+        [[{'title': 'Page1', 'line_idx': '0', 'text': 'Sun was good'}, ('Page1', '1', 'shining light')]]
     ))

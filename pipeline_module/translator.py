@@ -54,6 +54,8 @@ class Translator(ABC):
 
 
 class OpusMTTranslator(Translator):
+    """Helsinki-NLP/opus-mt Translator"""
+
     def __init__(self, source_lang: str = 'de', dest_lang: str = 'en'):
         self.model_name = f'Helsinki-NLP/opus-mt-{source_lang}-{dest_lang}'
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -97,10 +99,10 @@ class OpusMTTranslator(Translator):
         if fallback_needed:
             word_index = [entry.get('word') for entry in batch]
             words = [entry.get('word') for entry in fallback_needed]
-            texts = [entry.get('text') for entry in fallback_needed]
-
-            translated_words = self.translate_batch(words, num_translations=1)
-            translated_texts = self.translate_batch(texts, num_translations=1)
+            translated_words = self.translate_batch(words)
+            translated_texts = self.translate_batch([entry.get('text')
+                                                     for entry in fallback_needed],
+                                                    num_translations=1)
 
             for word, translated_word, translated_text in zip(words, translated_words,
                                                               translated_texts):

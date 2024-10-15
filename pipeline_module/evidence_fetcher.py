@@ -1,3 +1,4 @@
+"""Module for Evidence Fetcher."""
 from abc import ABC, abstractmethod
 from typing import List, Dict, Tuple, Optional
 
@@ -21,14 +22,18 @@ class EvidenceFetcher(ABC):
         return self.fetch_evidences_batch(batch, only_intro, word_lang)
 
     @abstractmethod
-    def fetch_evidences(self, word: Optional[str] = None, translated_word: Optional[str] = None, search_word: Optional[str] = None, only_intro: bool = True,
-                        word_lang: str = 'de') -> Tuple[
-        str, List[Tuple[str, List[str], List[str]]]]:
+    def fetch_evidences(self,
+                        word: str | None = None,
+                        translated_word: str | None = None,
+                        search_word: str | None = None,
+                        only_intro: bool = True,
+                        word_lang: str = 'de') -> Tuple[str, List[dict]]:
         """
         Fetch evidences for a single word.
 
         :param word: The word to fetch evidence for.
         :param translated_word: The translated word to use as fallback.
+        :param search_word:
         :param only_intro: Flag to fetch only the introduction.
         :param word_lang: Language code for the word.
         :return: Tuple containing the word and its evidence.
@@ -37,7 +42,7 @@ class EvidenceFetcher(ABC):
 
     @abstractmethod
     def fetch_evidences_batch(self, batch: List[Dict], only_intro: bool = True,
-                              word_lang: str = 'de'):
+                              word_lang: str = 'de') -> Tuple[List[str], List[List[dict]]]:
         """
         Fetch evidences for a batch of words.
 
@@ -64,7 +69,8 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
 
     OFFLINE_WIKI = 'lukasellinger/wiki_dump_2024-09-27'
 
-    def __init__(self, offline: bool = True, source_lang: str = 'en', split_level: str = 'sentence'):
+    def __init__(self,
+                 offline: bool = True, source_lang: str = 'en', split_level: str = 'sentence'):
         """
         Initialize the WikipediaEvidenceFetcher.
 
@@ -76,19 +82,11 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
         self.wiki = Wikipedia(use_dataset=self.OFFLINE_WIKI) if offline else Wikipedia(
             source_lang=source_lang)
 
-    def fetch_evidences(self, word: Optional[str] = None, translated_word: Optional[str] = None, search_word: Optional[str] = None, only_intro: bool = True,
-                        word_lang: str = 'de') -> Tuple[
-        str, List[Tuple[str, List[str], List[str]]]]:
-        """
-        Fetch evidences for a single word using the batch method.
-
-        :param word: The word to fetch evidence for.
-        :param translated_word: The translated word to use as fallback.
-        :param only_intro: Flag to fetch only the introduction.
-        :param word_lang: Language code for the word.
-        :return: Tuple containing the word and its evidence.
-        """
-
+    def fetch_evidences(self,
+                        word: Optional[str] = None, translated_word: Optional[str] = None,
+                        search_word: Optional[str] = None,
+                        only_intro: bool = True,
+                        word_lang: str = 'de') -> Tuple[str, List[dict]]:
         evid_words, evids = self.fetch_evidences_batch(
             [{'word': word, 'translated_word': translated_word, 'search_word': search_word}],
             only_intro=only_intro, word_lang=word_lang
@@ -96,16 +94,7 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
         return evid_words[0], evids[0]
 
     def fetch_evidences_batch(self, batch: List[Dict], only_intro: bool = True,
-                              word_lang: str = 'de') -> Tuple[
-        List[str], List[List[Tuple[str, List[str], List[str]]]]]:
-        """
-        Fetch evidences for a batch of words.
-
-        :param batch: List of dictionaries containing 'word' and 'translated_word'.
-        :param only_intro: Flag to fetch only the introduction.
-        :param word_lang: Language code for the word.
-        :return: Tuple of lists: evidence words and evidence details.
-        """
+                              word_lang: str = 'de') -> Tuple[List[str], List[List[dict]]]:
         # Validate batch contents based on mode (offline or online)
         required_keys = ['search_word'] if self.offline else ['word', 'translated_word']
         for key in required_keys:
@@ -115,7 +104,9 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
         evidence_batch = [
             {
                 'word': wiki_word,
-                'evidences': [{'title': page, 'line_indices': [i for i in range(len(lines))], 'lines': lines} for page, lines in texts],
+                'evidences': [
+                    {'title': page, 'line_indices': [i for i in range(len(lines))], 'lines': lines}
+                    for page, lines in texts],
             }
             for entry in batch
             for texts, wiki_word in [self.wiki.get_pages(
@@ -134,14 +125,12 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
 
         return evid_words, evids
 
-    def get_max_intro_sent_idx(self):
+    def get_max_intro_sent_idx(self) -> dict:
         return self.wiki.get_offline_max_intro_sent_idx() if self.offline else {}
-
 
 
 if __name__ == "__main__":
     fetcher = WikipediaEvidenceFetcher()
-    fetcher.wiki.get_offline_max_intro_sent_idx()
     result = fetcher.fetch_evidences_batch([
         {'search_word': 'censorship'},
         {'search_word': 'printed circuit board'}
