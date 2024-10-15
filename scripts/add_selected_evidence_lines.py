@@ -6,6 +6,7 @@ from tqdm import tqdm
 from dataset.def_dataset import split_text, process_lines
 from general_utils.utils import process_sentence_wiki
 from pipeline_module.evidence_selector import ModelEvidenceSelector
+from pipeline_module.pipeline import FeverPipeline
 
 model_name = 'lukasellinger/evidence_selection_model-v4'
 dataset_dict = load_dataset('lukasellinger/fever_claim_verification_dissim-v1')
@@ -16,18 +17,7 @@ for name, dataset in dataset_dict.items():
     selected_evidence_lines = []
     for entry in tqdm(dataset):
         try:
-            lines = process_lines(entry['lines'])
-            processed_lines = []
-            line_numbers = []
-            for line in lines.split('\n'):
-                line = process_sentence_wiki(line)
-                line_number, text = split_text(line)
-                processed_lines.append(text)
-                line_numbers.append(line_number)
-            evidence = [{'title': entry['document_id'],
-                         'line_indices': line_numbers,
-                         'lines': processed_lines}]
-
+            evidence = FeverPipeline.prepare_evid(entry)
             evids_batch = evid_selector.select_evidences({'text': entry['claim']}, evidence)
 
             pr_evidence_lines = [evidence.get('line_idx') for evidence in evids_batch]

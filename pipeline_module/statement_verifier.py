@@ -1,22 +1,18 @@
+"""Module for Statement Verifiers."""
 from abc import ABC, abstractmethod
 from typing import List, Dict
 
 import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 
 from dataset.def_dataset import Fact
-from fetchers.openai import OpenAiFetcher
-from general_utils.utils import get_openai_prediction, parse_model_answer, \
-    get_openai_prediction_log_probs
 from models.claim_verification_model import ClaimVerificationModel
 
 
 class StatementVerifier(ABC):
-    """
-    Abstract base class for verifying statements against evidence.
-    """
+    """Abstract base class for verifying statements against evidence."""
 
-    def __call__(self, statements: List[str], evidence_batch: List[str]):
+    def __call__(self, statements: List[Dict], evidence_batch: List[List[Dict]]):
         """
         Verify a batch of statements against a batch of evidences.
 
@@ -28,10 +24,14 @@ class StatementVerifier(ABC):
 
     @abstractmethod
     def set_premise_sent_order(self, sent_order: str):
-        pass
+        """
+        Set the order in which premise sentences should be processed during verification.
+
+        :param sent_order: The sentence order strategy ('reverse', 'top_last', or 'keep').
+        """
 
     @abstractmethod
-    def verify_statement(self, statement: Dict, evidence: str):
+    def verify_statement(self, statement: Dict, evidence: List[Dict]):
         """
         Verify a single statement against a single evidence.
 
@@ -39,10 +39,10 @@ class StatementVerifier(ABC):
         :param evidence: The evidence to verify the statement against.
         :return: Verification result.
         """
-        pass
 
     @abstractmethod
-    def verify_statement_batch(self, statements: List[Dict], evids_batch: List[str]):
+    def verify_statement_batch(self,
+                               statements: List[Dict], evids_batch: List[List[Dict]]) -> List[Dict]:
         """
         Verify a batch of statements against a batch of evidences.
 
@@ -50,7 +50,6 @@ class StatementVerifier(ABC):
         :param evids_batch: List of evidences corresponding to the statements.
         :return: List of verification results.
         """
-        pass
 
 
 class ModelStatementVerifier(StatementVerifier):
@@ -61,11 +60,6 @@ class ModelStatementVerifier(StatementVerifier):
     MODEL_NAME = 'lukasellinger/claim_verification_model-v5'
 
     def __init__(self, model_name: str = '', premise_sent_order: str = 'reverse'):
-        """
-        Initialize the ModelStatementVerifier with the specified model.
-
-        :param model_name: Name of the model to use. Defaults to a pre-defined model.
-        """
         self.model_name = model_name or self.MODEL_NAME
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
@@ -80,25 +74,20 @@ class ModelStatementVerifier(StatementVerifier):
         self.premise_sent_order = sent_order
 
     def load_model(self):
+        """Load the machine learning model for verification, if not already loaded."""
         if self.model is None:
             model_raw = AutoModelForSequenceClassification.from_pretrained(self.model_name)
             self.model = ClaimVerificationModel(model_raw).to(self.device)
             self.model.eval()
 
     def unload_model(self):
+        """Unload the machine learning model and free up GPU resources."""
         if self.model is not None:
             del self.model
             torch.cuda.empty_cache()
             self.model = None
 
-    def verify_statement(self, statement: Dict, evidence: List[str]):
-        """
-        Verify a single statement against a single evidence.
-
-        :param statement: The statement to be verified.
-        :param evidence: The evidence to verify the statement against.
-        :return: Verification result.
-        """
+    def verify_statement(self, statement: Dict, evidence: List[Dict]):
         return self.verify_statement_batch([statement], [evidence])[0]
 
     def _order_hypothesis(self, hypo_sents: List[str]):
@@ -115,14 +104,8 @@ class ModelStatementVerifier(StatementVerifier):
         elif self.premise_sent_order == 'keep':
             return ' '.join(hypo_sents)
 
-    def verify_statement_batch(self, statements: List[Dict], evids_batch: List[List[str]]):
-        """
-        Verify a batch of statements against a batch of evidences.
-
-        :param statements: List of statements to be verified.
-        :param evids_batch: List of evidences corresponding to the statements.
-        :return: List of verification results.
-        """
+    def verify_statement_batch(self,
+                               statements: List[Dict], evids_batch: List[List[Dict]]) -> List[Dict]:
         if not self.model:
             self.load_model()
 
@@ -159,23 +142,14 @@ class ModelStatementVerifier(StatementVerifier):
 
 
 class ModelEnsembleStatementVerifier(ModelStatementVerifier):
-    """
-    StatementVerifier implementation that uses a machine learning model for verification.
-    """
+    """StatementVerifier implementation that uses aan ensemble of models for verification."""
 
     MODEL_NAME = 'lukasellinger/claim_verification_model-v5'
 
     def __init__(self, model_name: str = '', premise_sent_order: str = 'reverse'):
-        """
-        Initialize the ModelStatementVerifier with the specified model.
-
-        :param model_name: Name of the model to use. Defaults to a pre-defined model.
-        """
         super().__init__(model_name, premise_sent_order)
-        from transformers import pipeline
         self.classifier = pipeline("zero-shot-classification",
                                    model="facebook/bart-large-mnli")
-        self.openai = OpenAiFetcher()
 
     def load_model(self):
         if self.model is None:
@@ -189,14 +163,8 @@ class ModelEnsembleStatementVerifier(ModelStatementVerifier):
             torch.cuda.empty_cache()
             self.model = None
 
-    def verify_statement_batch(self, statements: List[Dict], evids_batch: List[List[str]]):
-        """
-        Verify a batch of statements against a batch of evidences.
-
-        :param statements: List of statements to be verified.
-        :param evids_batch: List of evidences corresponding to the statements.
-        :return: List of verification results.
-        """
+    def verify_statement_batch(self,
+                               statements: List[Dict], evids_batch: List[List[Dict]]) -> List[Dict]:
         if not self.model:
             self.load_model()
 
@@ -225,34 +193,19 @@ class ModelEnsembleStatementVerifier(ModelStatementVerifier):
                     low_confidence_indices = (maximums < 0.7).nonzero(as_tuple=True)[0]
 
                     if len(low_confidence_indices) > 0:
-                        # # Prepare inputs for the low confidence cases
-                        # low_confidence_facts = [facts[i] for i in low_confidence_indices.tolist()]
-                        # for i, low_fact in zip(low_confidence_indices, low_confidence_facts):
-                        #     response = self.openai.get_output([
-                        #         {
-                        #             "role": "user",
-                        #             "content": f"Please verify the following statement. Input: {low_fact} True or False?\nOutput:'"
-                        #         }
-                        #     ])
-                        #
-                        #     true_log_prob, false_log_prob = get_openai_prediction_log_probs(
-                        #         response, batched=False)
-                        #     zero_shot_probs = torch.softmax(
-                        #         torch.tensor([true_log_prob, false_log_prob]), dim=-1)
-                        #     zero_shot_probs = torch.cat((zero_shot_probs, zero_shot_probs[1:2]),
-                        #                                 dim=-1)
-                        #     probabilities[i] = 2.5 * probabilities[i] + zero_shot_probs  # 1.5
-                        # predictions = torch.argmax(probabilities, dim=-1).tolist()
                         # Prepare inputs for the low confidence cases
                         low_confidence_facts = [facts[i] for i in low_confidence_indices.tolist()]
                         candidate_labels = ['true', 'false']
 
-                        outputs = self.classifier(low_confidence_facts, candidate_labels, multi_label=True)
-                        zero_shot_probs = torch.softmax(torch.tensor([output.get('scores') for output in outputs]), dim=-1)
-                        zero_shot_probs = torch.cat((zero_shot_probs, zero_shot_probs[:, 1:2]), dim=1)
-                        combined_probabilities = 1.5 * probabilities[low_confidence_indices] + zero_shot_probs
+                        outputs = self.classifier(low_confidence_facts, candidate_labels,
+                                                  multi_label=True)
+                        zero_shot_probs = torch.softmax(
+                            torch.tensor([output.get('scores') for output in outputs]), dim=-1)
+                        zero_shot_probs = torch.cat((zero_shot_probs, zero_shot_probs[:, 1:2]),
+                                                    dim=1)
+                        combined_probabilities = 1.5 * probabilities[
+                            low_confidence_indices] + zero_shot_probs
                         combined_predictions = torch.argmax(combined_probabilities, dim=-1).tolist()
-                        # print('used low confidence')
                         for i, idx in enumerate(low_confidence_indices):
                             predictions[idx] = combined_predictions[i]
 
@@ -276,6 +229,7 @@ if __name__ == "__main__":
     verifier = ModelStatementVerifier(premise_sent_order='top_last')
     results = verifier.verify_statement_batch(
         [{'text': 'Sun is hot.'}, {'text': 'Sun is cold.'}],
-        [{'text': ['Sun is very very very hot.']}, {'text': ['Sun is very very very hot.']}]
+        [[{'text': 'Sun is very very very hot.'}],
+         [{'text': 'Sun is very very very hot.'}]]
     )
     print(results)

@@ -19,44 +19,50 @@ class EvidenceSelector(ABC):
     def __call__(self, batch: List[Dict], evidence_batch: List[List[Dict]],
                  max_evidence_count: int = 3, top_k: int = 3) -> List[List[Dict]]:
         """
-        Select evidences for a batch of claims.
+        Select evidences for a batch of claims by calling the select_evidences_batch method.
 
         :param batch: List of claims.
         :param evidence_batch: List of evidence lists corresponding to each claim.
+        :param max_evidence_count: Maximum number of evidences to consider for each claim.
+        :param top_k: Number of top sentences to select for each claim.
         :return: List of selected evidences for each claim.
         """
         return self.select_evidences_batch(batch, evidence_batch, max_evidence_count, top_k)
 
     @abstractmethod
     def set_min_similarity(self, min_similarity: float):
-        pass
+        """Set the minimum similarity threshold for evidence selection."""
 
     @abstractmethod
     def set_evidence_selection(self, evidence_selection: str):
-        pass
+        """
+        Set the method of evidence selection.
+
+        :param evidence_selection: Strategy for evidence selection ('mmr' or 'top').
+        """
 
     @abstractmethod
     def select_evidences(self, claim: Dict, evidences: List[Dict]) -> List[Dict]:
         """
-        Select evidences for a single claim.
+        Select evidences for a single claim from a list of evidences.
 
-        :param claim: The claim to select evidences for.
-        :param evidences: List of evidences.
-        :return: List of selected evidences.
+        :param claim: Dictionary representing the claim.
+        :param evidences: List of evidence dictionaries.
+        :return: List of selected evidences for the given claim.
         """
-        pass
 
     @abstractmethod
     def select_evidences_batch(self, batch: List[Dict], evidence_batch: List[List[Dict]],
                                max_evidence_count: int = 3, top_k: int = 3) -> List[List[Dict]]:
         """
-        Select evidences for a batch of claims.
+        Select evidences for a batch of claims from corresponding evidence batches.
 
         :param batch: List of claims.
         :param evidence_batch: List of evidence lists corresponding to each claim.
+        :param max_evidence_count: Maximum number of evidences to consider for each claim.
+        :param top_k: Number of top sentences to select for each claim.
         :return: List of selected evidences for each claim.
         """
-        pass
 
 
 class ModelEvidenceSelector(EvidenceSelector):
@@ -88,6 +94,7 @@ class ModelEvidenceSelector(EvidenceSelector):
         self.evidence_selection = evidence_selection
 
     def load_model(self):
+        """Load the machine learning model for evidence selection, if not already loaded."""
         if self.model is None:
             model_raw = AutoModel.from_pretrained(self.model_name, trust_remote_code=True,
                                                   add_pooling_layer=False, safe_serialization=True)
@@ -95,33 +102,18 @@ class ModelEvidenceSelector(EvidenceSelector):
             self.model.eval()
 
     def unload_model(self):
+        """Unload the machine learning model and free up GPU resources."""
         if self.model is not None:
             del self.model
             torch.cuda.empty_cache()
             self.model = None
 
     def select_evidences(self, claim: Dict, evidences: List[Dict]) -> List[Dict]:
-        """
-        Select evidences for a single claim.
-
-        :param claim: The claim to select evidences for.
-        :param evidences: List of evidences.
-        :return: List of selected evidences.
-        """
         return self.select_evidences_batch([claim], [evidences])[0]
 
     def select_evidences_batch(self, batch: List[Dict],
                                evidence_batch: List[List[Dict]],
                                max_evidence_count: int = 3, top_k: int = 3) -> List[List[Dict]]:
-        """
-        Select evidences for a batch of claims.
-
-        :param batch: List of claims.
-        :param evidence_batch: List of evidence lists corresponding to each claim.
-        :param max_evidence_count: Maximum number of evidences to consider.
-        :param top_k: Number of top sentences to select.
-        :return: List of selected evidences for each claim.
-        """
         if not self.model:
             self.load_model()
 
@@ -142,17 +134,18 @@ class ModelEvidenceSelector(EvidenceSelector):
                 ranked_evidence_batch.append(evidences)
         return ranked_evidence_batch
 
-    def mmr(self,
-            sentence_similarities: List[Dict],
+    @staticmethod
+    def mmr(sentence_similarities: List[Dict],
             top_n: int =3, lambda_param: float = 0.7) -> List[Dict]:
         """
-        Apply Maximal Marginal Relevance (MMR) to select top_n sentences.
+        Apply Maximal Marginal Relevance (MMR) to select the top_n sentences based on relevance
+        and diversity.
 
-        :param claim_vec: numpy array, the embedding of the claim sentence.
-        :param evidence_vecs: numpy array, the embeddings of the evidence sentences.
-        :param top_n: int, the number of sentences to select.
-        :param lambda_param: float, the trade-off parameter between relevance and diversity (0 <= lambda <= 1).
-        :return: list of indices of the selected evidence sentences.
+        :param sentence_similarities: List of sentence similarity scores and embeddings.
+        :param top_n: Number of top sentences to select.
+        :param lambda_param: Parameter for controlling the trade-off between relevance and
+        diversity.
+        :return: List of selected sentences after applying MMR.
         """
         if len(sentence_similarities) < 1:
             return []
@@ -207,7 +200,7 @@ class ModelEvidenceSelector(EvidenceSelector):
             if self.evidence_selection == 'mmr':
                 top_sentences = self.mmr(sorted_sentences, top_k)
             elif self.evidence_selection == 'top':
-                top_sentences = self._get_top_unique_sentences(sorted_sentences, top_k)
+                top_sentences = self.get_top_unique_sentences(sorted_sentences, top_k)
             else:
                 raise ValueError('evidence_selection must either be "mmr" or "top"')
 
@@ -246,7 +239,14 @@ class ModelEvidenceSelector(EvidenceSelector):
         return encoded_sequence, sentence_masks
 
     @staticmethod
-    def _get_top_unique_sentences(sorted_sentences: List[Dict], top_k: int = 3) -> List[Dict]:
+    def get_top_unique_sentences(sorted_sentences: List[Dict], top_k: int = 3) -> List[Dict]:
+        """
+        Select the top K unique sentences based on similarity scores.
+
+        :param sorted_sentences: List of sorted sentences based on similarity scores.
+        :param top_k: Number of top unique sentences to select.
+        :return: List of top K unique sentences.
+        """
         unique_sentences = []
         seen_sentences = set()
         for entry in sorted_sentences:

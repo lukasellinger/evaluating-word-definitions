@@ -1,5 +1,6 @@
+"""Module for Pipelines."""
 from copy import deepcopy
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from sklearn.metrics import classification_report
 from tqdm import tqdm
@@ -12,8 +13,8 @@ from pipeline_module.claim_splitter import ClaimSplitter
 from pipeline_module.evidence_fetcher import EvidenceFetcher, WikipediaEvidenceFetcher
 from pipeline_module.evidence_selector import EvidenceSelector, ModelEvidenceSelector
 from pipeline_module.sentence_connector import SentenceConnector, ColonSentenceConnector
-from pipeline_module.statement_verifier import StatementVerifier, ModelEnsembleStatementVerifier
-from pipeline_module.translator import Translator
+from pipeline_module.statement_verifier import StatementVerifier, ModelStatementVerifier
+from pipeline_module.translator import Translator, OpusMTTranslator
 
 
 class Pipeline:
@@ -35,11 +36,13 @@ class Pipeline:
         self.stm_verifier = stm_verifier
         self.lang = lang
 
-    def verify_batch(self, batch: List[Dict], only_intro: bool = True):
+    def verify_batch(self, batch: List[Dict], only_intro: bool = True) -> List[Dict]:
         """
-        Verify a batch of claims.
+        Verify a batch of claims by fetching, selecting, and verifying evidence.
 
         :param batch: List of dictionaries containing 'word' and 'text'.
+        :param only_intro: Flag to indicate if only the introductory section of documents should
+        be considered.
         :return: List of outputs with factuality and selected evidences.
         """
         processed_batch = deepcopy(batch)
@@ -92,13 +95,15 @@ class Pipeline:
         return outputs
 
     def verify(self, word: str, claim: str, search_word: Optional[str] = None,
-               only_intro: bool = True):
+               only_intro: bool = True) -> Dict:
         """
         Verify a single claim.
 
         :param word: The word to verify.
         :param claim: The claim to verify.
         :param search_word: Optional search word for evidence fetching.
+        :param only_intro: Flag to indicate if only the introductory section of documents should
+        be considered.
         :return: Verification result.
         """
         entry = {'word': word, 'text': claim}
@@ -106,60 +111,17 @@ class Pipeline:
             entry['search_word'] = search_word
         return self.verify_batch([entry], only_intro=only_intro)[0]
 
-    def verify_test_select(self, batch: List[Dict], only_intro: bool = True, max_evidence_count: int = 3, top_k: int = 3):
+    def verify_test_batch(self, batch: List[Dict], only_intro: bool = True,
+                          max_evidence_count: int = 3, top_k: int = 3) -> List[Dict]:
         """
-        Verify a test batch of claims.
+        Verify a test batch of claims by fetching, selecting, and verifying evidence.
 
         :param batch: List of dictionaries containing claims.
-        :return: Evidences for the batch.
-        """
-        filtered_batch = []
-        outputs = []
-        for entry in batch:
-            if entry['in_wiki'] == 'No':
-                outputs.append(
-                    {'id': entry.get('id'),
-                     'word': entry.get('word'),
-                     'claim': entry.get('claim'),
-                     'connected_claim': entry.get('connected_claim'),
-                     'label': entry.get('label'),
-                     'predicted': -1}
-                )
-            else:
-                filtered_batch.append(entry)
-
-        evid_fetcher_input = [{'word': entry['word'],
-                               'translated_word': entry.get('english_word', entry['word']),
-                               'search_word': entry['document_search_word']} for entry in
-                              filtered_batch]
-
-        _, evids = self.evid_fetcher(evid_fetcher_input, word_lang=self.lang, only_intro=only_intro)
-
-        if not filtered_batch:
-            return outputs
-
-        if self.claim_splitter:
-            split_type = type(self.claim_splitter).__name__.split('Splitter')[0]
-            processed_batch = [{'text': entry.get('english_claim', entry['claim']),
-                                'splits': entry[f'{split_type}_facts'].split('--;--')} for entry in filtered_batch]
-        else:
-            if isinstance(self.sent_connector, ColonSentenceConnector):
-                processed_batch = self.sent_connector([{'word': entry['document_search_word'],
-                                                        'text': entry.get('english_claim',
-                                                                          entry['claim'])} for entry
-                                                       in filtered_batch])
-            else:
-                processed_batch = [{'text': entry['connected_claim']} for entry in filtered_batch]
-
-        evids_batch = self.evid_selector(processed_batch, evids, max_evidence_count, top_k)
-        return evids_batch
-
-    def verify_test_batch(self, batch: List[Dict], only_intro: bool = True, max_evidence_count: int = 3, top_k: int = 3):
-        """
-        Verify a test batch of claims.
-
-        :param batch: List of dictionaries containing claims.
-        :return: Evidences for the batch.
+        :param only_intro: Flag to indicate if only the introductory section of documents should
+        be considered.
+        :param max_evidence_count: Maximum number of evidences to consider for each claim.
+        :param top_k: Number of top sentences to select for each claim.
+        :return: List of verified claims with evidence.
         """
         filtered_batch = []
         outputs = []
@@ -190,7 +152,8 @@ class Pipeline:
         if self.claim_splitter:
             split_type = type(self.claim_splitter).__name__.split('Splitter')[0]
             processed_batch = [{'text': entry.get('english_claim', entry['claim']),
-                                'splits': entry[f'{split_type}_facts'].split('--;--')} for entry in filtered_batch]
+                                'splits': entry[f'{split_type}_facts'].split('--;--')} for entry in
+                               filtered_batch]
         else:
             if isinstance(self.sent_connector, ColonSentenceConnector):
                 processed_batch = self.sent_connector([{'word': entry['document_search_word'],
@@ -215,19 +178,32 @@ class Pipeline:
                             })
         return outputs
 
-    def _prep_evidence_output(self, evidence):
+    def _prep_evidence_output(self, evidence: List[Dict]) -> List[Dict]:
         max_intro_sent_indices = self.evid_fetcher.get_max_intro_sent_idx()
         for entry in evidence:
             entry['in_intro'] = entry.get('line_idx') <= max_intro_sent_indices.get(
                 entry.get('title'), -1)
         return evidence
 
-    def verify_test_dataset(self, dataset, batch_size: int = 4, output_file_name: str = '',
-                            only_intro: bool = True, max_evidence_count: int = 3, top_k: int = 3):
+    def verify_test_dataset(self,
+                            dataset,
+                            batch_size: int = 4,
+                            output_file_name: str = '',
+                            only_intro: bool = True,
+                            max_evidence_count: int = 3,
+                            top_k: int = 3) -> Tuple[List[Dict], str, int]:
         """
-        Verify a test dataset.
+        Verify a test dataset in batches.
 
         :param dataset: Dataset to verify.
+        :param batch_size: Number of claims to verify at a time.
+        :param output_file_name: Optional name of the output file to save results.
+        :param only_intro: Flag to indicate if only the introductory section of documents should
+        be considered.
+        :param max_evidence_count: Maximum number of evidences to consider for each claim.
+        :param top_k: Number of top sentences to select for each claim.
+        :return: Tuple containing verification results, classification report, and count of claims
+        not found in wiki.
         """
         dataset = dataset.to_list()
 
@@ -235,7 +211,8 @@ class Pipeline:
         not_in_wiki = 0
         for i in tqdm(range(0, len(dataset), batch_size)):
             batch = dataset[i:i + batch_size]
-            output = self.verify_test_batch(batch, only_intro=only_intro, max_evidence_count=max_evidence_count, top_k=top_k)
+            output = self.verify_test_batch(batch, only_intro=only_intro,
+                                            max_evidence_count=max_evidence_count, top_k=top_k)
 
             for entry in output:
                 if entry['predicted'] != -1:
@@ -251,7 +228,13 @@ class Pipeline:
         return outputs, classification_report(gt_labels, pr_labels, zero_division=0,
                                               digits=4), not_in_wiki
 
-    def mark_summary_sents_test_batch(self, batch):
+    def mark_summary_sents_test_batch(self, batch: List[Dict]) -> Dict:
+        """
+        Mark the summary sentences for a test batch of claims.
+
+        :param batch: List of dictionaries containing claims.
+        :return: Dictionary mapping document titles to maximum summary sentence indices.
+        """
         evids_batch = [{'word': entry.get('word'),
                         'translated_word': entry.get('english_word', entry.get('word')),
                         'search_word': entry['document_search_word']} for entry in batch]
@@ -266,6 +249,7 @@ class Pipeline:
 
 
 class FeverPipeline:
+    """Pipeline specifically designed for FEVER (Fact Extraction and Verification) dataset."""
     def __init__(self,
                  claim_splitter: Optional[ClaimSplitter],
                  evid_selector: EvidenceSelector,
@@ -274,7 +258,13 @@ class FeverPipeline:
         self.evid_selector = evid_selector
         self.stm_verifier = stm_verifier
 
-    def get_gold_evids(self, batch):
+    def get_gold_evids(self, batch: List[Dict]) -> Tuple[List[Dict], List[List[Dict]]]:
+        """
+        Retrieve the gold-standard evidence for a batch of claims.
+
+        :param batch: List of dictionaries containing claims.
+        :return: Tuple containing the filtered batch and corresponding evidence batch.
+        """
         filtered_batch = []
         evid_batch = []
         for entry in batch:
@@ -292,7 +282,14 @@ class FeverPipeline:
             evid_batch.append(evidences)
         return filtered_batch, evid_batch
 
-    def prepare_evid(self, entry):
+    @staticmethod
+    def prepare_evid(entry: Dict) -> List[Dict]:
+        """
+        Prepare evidence by processing lines from the entry and splitting them.
+
+        :param entry: Dictionary containing evidence lines.
+        :return: List of processed evidence.
+        """
         lines = process_lines(entry['lines'])
         processed_lines = []
         line_numbers = []
@@ -302,15 +299,18 @@ class FeverPipeline:
             processed_lines.append(text)
             line_numbers.append(line_number)
         return [{'title': entry['document_id'],
-                       'line_indices': line_numbers,
-                       'lines': processed_lines}]
+                 'line_indices': line_numbers,
+                 'lines': processed_lines}]
 
-    def verify_test_batch(self, batch: List[Dict], gold_evidence: bool = False):
+    def verify_test_batch(self,
+                          batch: List[Dict],
+                          gold_evidence: bool = False) -> Tuple[List[Dict], List[Dict]]:
         """
-        Verify a test batch of claims.
+        Verify a test batch of claims, optionally using gold-standard evidence.
 
         :param batch: List of dictionaries containing claims.
-        :return: Evidences for the batch.
+        :param gold_evidence: Flag to indicate if gold-standard evidence should be used.
+        :return: Tuple containing verification results and FEVER instances.
         """
         if gold_evidence:
             batch, evids_batch = self.get_gold_evids(batch)
@@ -324,7 +324,8 @@ class FeverPipeline:
         if self.claim_splitter:
             split_type = type(self.claim_splitter).__name__.split('Splitter')[0]
             processed_batch = [{'text': entry['claim'],
-                                'splits': entry[f'{split_type}_facts'].split('--;--')} for entry in batch]
+                                'splits': entry[f'{split_type}_facts'].split('--;--')} for entry in
+                               batch]
         else:
             processed_batch = [{'text': entry['claim']} for entry in batch]
 
@@ -340,18 +341,25 @@ class FeverPipeline:
                             'evidence': evidence
                             })
             fever_instances.append(build_fever_instance(entry.get('label'),
-                                                        entry['evidence_lines'].split(';') if entry['evidence_lines'] else [],
+                                                        entry['evidence_lines'].split(';') if entry[
+                                                            'evidence_lines'] else [],
                                                         entry['document_id'],
                                                         factuality.get('predicted'),
                                                         [(line.get('title'), line.get('line_idx'))
                                                          for line in evidence]))
         return outputs, fever_instances
 
-    def verify_test_dataset(self, dataset, batch_size: int = 4, output_file_name: str = '', gold_evidence: bool = False):
+    def verify_test_dataset(self, dataset, batch_size: int = 4, output_file_name: str = '',
+                            gold_evidence: bool = False) -> Tuple[List[Dict], str, Dict]:
         """
-        Verify a test dataset.
+        Verify a test dataset in batches for the FEVER task.
 
         :param dataset: Dataset to verify.
+        :param batch_size: Number of claims to verify at a time.
+        :param output_file_name: Optional name of the output file to save results.
+        :param gold_evidence: Flag to indicate if gold-standard evidence should be used.
+        :return: Tuple containing verification results, classification report, and
+        FEVER score report.
         """
         dataset = dataset.to_list()
 
@@ -372,18 +380,27 @@ class FeverPipeline:
 
         fever_report = {'strict_score': fever_score(fever_instances)[0],
                         'gold_label': fever_score(fever_instances, use_gold_labels=True)[0]}
-        return outputs, classification_report(gt_labels, pr_labels, zero_division=0, digits=4), fever_report
+        return outputs, classification_report(gt_labels, pr_labels, zero_division=0,
+                                              digits=4), fever_report
 
 
 if __name__ == "__main__":
     evid_selector = ModelEvidenceSelector(evidence_selection='mmr')
-    stm_verifier = ModelEnsembleStatementVerifier(
+    stm_verifier = ModelStatementVerifier(
         model_name='MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7')
-    offline_evid_fetcher = WikipediaEvidenceFetcher()
-    pipeline = Pipeline(None, None, None, offline_evid_fetcher, evid_selector,
-                         stm_verifier, 'en')
-    result = pipeline.verify_test_batch([{'word': 'ERTU',
-                                      'document_search_word': 'glacier',
-                                          'in_wiki': 'Yes',
-                                    'connected_claim': 'A glacier is an ice mass resulting from snow with a clearly defined catchment area, which moves independently due to the slope, structure of the ice, temperature, and the shear stress resulting from the mass of the ice and the other factors.'},
-                                     ])
+    offline_evid_fetcher = WikipediaEvidenceFetcher(offline=False)
+    pipeline = Pipeline(OpusMTTranslator(), ColonSentenceConnector(), None, offline_evid_fetcher, evid_selector,
+                        stm_verifier, 'de')
+    # result = pipeline.verify_test_batch([{'word': 'ERTU',
+    #                                      'document_search_word': 'glacier',
+    #                                      'in_wiki': 'Yes',
+    #                                      'connected_claim': 'A glacier is an ice mass resulting '
+    #                                                         'from snow with a clearly defined '
+    #                                                         'catchment area, which moves '
+    #                                                         'independently due to the slope, '
+    #                                                         'structure of the ice, temperature, '
+    #                                                         'and the shear stress resulting from '
+    #                                                         'the mass of the ice and the other '
+    #                                                         'factors.'},
+    #                                     ])
+    pipeline.verify_batch([{'word': 'Apfel', 'text': 'Huhn'}])
