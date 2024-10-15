@@ -9,7 +9,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 
 from config import HF_READ_TOKENS, PROJECT_DIR
 from fetchers.openai import OpenAiFetcher
-from general_utils.atomic_facts import FactScoreFactGenerator
+from general_utils.factscore_facts import FactScoreFactGenerator
 from general_utils.spacy_utils import split_into_sentences
 from general_utils.utils import sentence_simplification
 
@@ -90,6 +90,7 @@ class MixtralSplitter(ClaimSplitter):
                 elif explanation_match:
                     explanation = explanation_match.group(1).strip()
             return {'text': text, 'splits': facts, 'explanation': explanation}
+        return {'error': 'No generated text.'}
 
     def query(self, payload, token):
         headers = {"Authorization": "Bearer {token}"}

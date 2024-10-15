@@ -1,3 +1,4 @@
+"""Module for FactScore Facts"""
 import json
 import numpy as np
 import re
@@ -5,7 +6,6 @@ import string
 import spacy
 from rank_bm25 import BM25Okapi
 import os
-from nltk.tokenize import sent_tokenize
 
 
 class FactScoreFactGenerator(object):
@@ -35,20 +35,18 @@ class FactScoreFactGenerator(object):
         prompt = ""
 
         for i in range(n):
-            prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(
-                list(demons.keys())[i])
+            prompt += (f"Please breakdown the following sentence into independent facts: "
+                       f"{list(demons.keys())[i]}\n")
             for fact in demons[list(demons.keys())[i]]:
-                prompt = prompt + "- {}\n".format(fact)
-            prompt = prompt + "\n"
+                prompt += f"- {fact}\n"
+            prompt += "\n"
 
         for match in top_machings:
-            prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(
-                match)
+            prompt += f"Please breakdown the following sentence into independent facts: {match}\n"
             for fact in demons[match]:
-                prompt = prompt + "- {}\n".format(fact)
+                prompt += f"- {fact}\n"
             prompt = prompt + "\n"
-        prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(
-            sentence)
+        prompt += f"Please breakdown the following sentence into independent facts: {sentence}\n"
         return prompt
 
     def get_prompt_for_sentence2(self, sentence):
@@ -59,42 +57,34 @@ class FactScoreFactGenerator(object):
         n = 7 if is_bio else 8
 
         prompts = []
-        # top_machings = best_demos(sentence, self.bm25, list(demons.keys()), k)
-        #
-        # for i in range(n):
-        #     prompts.append({"role": "user",
-        #                    'content': "Please breakdown the following sentence into independent facts: {}\n".format(
-        #                    list(demons.keys())[i])})
-        #
-        #     assistant_prompt = {"role": "assistant",
-        #                         'content': ''}
-        #     for fact in demons[list(demons.keys())[i]]:
-        #         assistant_prompt['content'] = assistant_prompt['content'] + "- {}\n".format(fact)
-        #     prompts.append(assistant_prompt)
-        #
-        # for match in top_machings:
-        #     prompts.append({"role": "user",
-        #                     'content': "Please breakdown the following sentence into independent facts: {}\n".format(match)})
-        #     assistant_prompt = {"role": "assistant",
-        #                         'content': ''}
-        #     for fact in demons[match]:
-        #         assistant_prompt['content'] = assistant_prompt['content'] + "- {}\n".format(fact)
-        #     prompts.append(assistant_prompt)
         prompts.append({"role": "user",
-                        'content': "Please breakdown the following sentence into independent facts. Do not be too finegrained. Refrain from introducing new facts. Refrain from using world knowledge:\n Empire State Building: personal essay about Woody Allen\n"})
+                        'content': "Please breakdown the following sentence into independent "
+                                   "facts. Do not be too finegrained. Refrain from introducing new "
+                                   "facts. Refrain from using world knowledge:\n Empire State "
+                                   "Building: personal essay about Woody Allen\n"})
         prompts.append({"role": "assistant",
-                        'content': "1. Empire State Building is a personal essay.\n2. Empire State Building is about Woody Allen."})
+                        'content': "1. Empire State Building is a personal essay.\n"
+                                   "2. Empire State Building is about Woody Allen."})
         prompts.append({"role": "user",
-                        'content': "Please breakdown the following sentence into independent facts. Do not be too finegrained. Refrain from introducing new facts. Refrain from using world knowledge:\n Marilyn Monroe: part of the war effort\n"})
+                        'content': "Please breakdown the following sentence into independent "
+                                   "facts. Do not be too finegrained. Refrain from introducing "
+                                   "new facts. Refrain from using world knowledge:\n "
+                                   "Marilyn Monroe: part of the war effort\n"})
         prompts.append({"role": "assistant",
                         'content': "1. Marilyn Monroe was a part of the war effort."})
         prompts.append({"role": "user",
-                        'content': "Please breakdown the following sentence into independent facts. Do not be too finegrained. Refrain from introducing new facts. Refrain from using world knowledge:\n Asthma: audio form of marketing communication.\n"})
+                        'content': "Please breakdown the following sentence into independent "
+                                   "facts. Do not be too finegrained. Refrain from introducing "
+                                   "new facts. Refrain from using world knowledge:\n "
+                                   "Asthma: audio form of marketing communication.\n"})
         prompts.append({"role": "assistant",
-                        'content': "1. Asthma is an audio form.\n2. Asthma is an form of marketing communication."})
+                        'content': "1. Asthma is an audio form.\n"
+                                   "2. Asthma is an form of marketing communication."})
         prompts.append({"role": "user",
-                        'content': "Please breakdown the following sentence into independent facts. Do not be too finegrained. Refrain from introducing new facts. Refrain from using world knowledge:\n {}\n".format(
-                            sentence)})
+                        'content': "Please breakdown the following sentence into independent "
+                                   "facts. Do not be too finegrained. Refrain from introducing "
+                                   "new facts. Refrain from using "
+                                   f"world knowledge:\n {sentence}\n"})
         return prompts
 
     def get_facts_from_response(self, sentence, model_response: str):

@@ -64,15 +64,15 @@ def create_def_dataset(file_in: str, file_out: str, person_prop=0.1, long=True) 
                             if page and evidence[2] != page:
                                 skip = True
                                 continue
-                            else:
-                                page = evidence[2]
+                            page = evidence[2]
                         if skip:
                             continue
 
                     if evidence_list[0][3] is None:  # sentence id is None
                         evidence_sentence_ids = None
                     else:
-                        evidence_sentence_ids = ','.join([str(evidence[3]) for evidence in evidence_list])
+                        evidence_sentence_ids = ','.join([str(evidence[3])
+                                                          for evidence in evidence_list])
 
                     long_entry = {'id': entry.get('id'),
                                   'verifiable': entry.get('verifiable'),

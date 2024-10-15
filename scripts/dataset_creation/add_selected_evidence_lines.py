@@ -1,3 +1,4 @@
+"""Script to add the evidence our evidence model selected to the entries."""
 import random
 
 from datasets import load_dataset
@@ -6,10 +7,10 @@ from tqdm import tqdm
 from pipeline_module.evidence_selector import ModelEvidenceSelector
 from pipeline_module.pipeline import FeverPipeline
 
-model_name = 'lukasellinger/evidence_selection_model-v4'
+MODEL_NAME = 'lukasellinger/evidence_selection_model-v4'
 dataset_dict = load_dataset('lukasellinger/fever_claim_verification_dissim-v1')
 
-evid_selector = ModelEvidenceSelector(model_name, evidence_selection='top', min_similarity=0)
+evid_selector = ModelEvidenceSelector(MODEL_NAME, evidence_selection='top', min_similarity=0)
 
 for name, dataset in dataset_dict.items():
     selected_evidence_lines = []
@@ -21,12 +22,12 @@ for name, dataset in dataset_dict.items():
             pr_evidence_lines = [evidence.get('line_idx') for evidence in evids_batch]
             if gold_evidence_lines := entry['evidence_lines']:
                 evidence_groups = gold_evidence_lines.split(';')
-                pr_useable = False
+                PR_USEABLE = False
                 for group in evidence_groups:
                     if all(line in pr_evidence_lines for line in group.split(',')):
-                        pr_useable = True
+                        PR_USEABLE = True
                         break
-                if not pr_useable:  # no gold evidence in predicted evidence
+                if not PR_USEABLE:  # no gold evidence in predicted evidence
                     print(f"Claim predictions false: {entry['claim']}")
                     builded_ev_lines = []
                     while len(builded_ev_lines) < 3:

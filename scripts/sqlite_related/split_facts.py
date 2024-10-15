@@ -32,7 +32,7 @@ def main(table, fact_table, claim_col):
         db.write(CREATE_ATOMIC_FACTS)
         claims = [f'{entry[0]}: {entry[1]}' for entry in db.read(f"""SELECT DISTINCT {word_col}, {claim_col} FROM {table}""")]
 
-    splitter = T5SplitRephraseSplitter()
+    splitter = T5SplitRephraseSplitter()  # MixtralSplitter / DisSimSplitter
     stats = defaultdict(int)
     for batch in tqdm(chunked(claims, 4)):
         output = splitter(batch)

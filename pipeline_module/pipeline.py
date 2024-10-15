@@ -385,12 +385,14 @@ class FeverPipeline:
 
 
 if __name__ == "__main__":
-    evid_selector = ModelEvidenceSelector(evidence_selection='mmr')
-    stm_verifier = ModelStatementVerifier(
-        model_name='MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7')
-    offline_evid_fetcher = WikipediaEvidenceFetcher(offline=False)
-    pipeline = Pipeline(OpusMTTranslator(), ColonSentenceConnector(), None, offline_evid_fetcher, evid_selector,
-                        stm_verifier, 'de')
+    pipeline = Pipeline(OpusMTTranslator(),
+                        ColonSentenceConnector(),
+                        None,
+                        WikipediaEvidenceFetcher(),
+                        ModelEvidenceSelector(evidence_selection='mmr'),
+                        ModelStatementVerifier(
+                            model_name='MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7'),
+                        'de')
     # result = pipeline.verify_test_batch([{'word': 'ERTU',
     #                                      'document_search_word': 'glacier',
     #                                      'in_wiki': 'Yes',

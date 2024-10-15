@@ -72,7 +72,8 @@ class ModelEvidenceSelector(EvidenceSelector):
 
     MODEL_NAME = 'lukasellinger/evidence-selection-model'
 
-    def __init__(self, model_name: str = '', min_similarity: float = 0, evidence_selection: str = 'top'):
+    def __init__(self,
+                 model_name: str = '', min_similarity: float = 0, evidence_selection: str = 'top'):
         """
         Initialize the ModelEvidenceSelector with the specified model.
 
@@ -151,7 +152,8 @@ class ModelEvidenceSelector(EvidenceSelector):
             return []
 
         claim_similarities = [entry['sim'] for entry in sentence_similarities]
-        sentence_embeddings = torch.stack([entry['embedding'] for entry in sentence_similarities]).cpu()
+        sentence_embeddings = torch.stack([entry['embedding']
+                                           for entry in sentence_similarities]).cpu()
 
         pairwise_similarities = cosine_similarity(
             sentence_embeddings.unsqueeze(1), sentence_embeddings.unsqueeze(0), dim=2
@@ -167,7 +169,7 @@ class ModelEvidenceSelector(EvidenceSelector):
 
                 diversity = 0
                 if selected_indices:
-                    diversity = max([pairwise_similarities[i][j] for j in selected_indices])
+                    diversity = max(pairwise_similarities[i][j] for j in selected_indices)
 
                 mmr_score = lambda_param * relevance - (1 - lambda_param) * diversity
                 mmr_scores.append(mmr_score)
@@ -220,9 +222,14 @@ class ModelEvidenceSelector(EvidenceSelector):
         }
         with torch.no_grad():
             sentence_embeddings = self.model(**sentences_model_input).squeeze(0)
-            claim_similarities = cosine_similarity(statement_embeddings, sentence_embeddings, dim=2).tolist()[0]
-        return [{'title': page, 'line_idx': line_num, 'text': sentence, 'sim': sim, 'embedding': embedding} for
-                line_num, sentence, sim, embedding in zip(line_numbers, sentences, claim_similarities, sentence_embeddings)]
+            claim_similarities = cosine_similarity(statement_embeddings,
+                                                   sentence_embeddings, dim=2).tolist()[0]
+        return [{'title': page,
+                 'line_idx': line_num,
+                 'text': sentence,
+                 'sim': sim,
+                 'embedding': embedding} for line_num, sentence, sim, embedding in
+                zip(line_numbers, sentences, claim_similarities, sentence_embeddings)]
 
     def _encode_sentences(self, sentences: List[str]) -> Tuple[List[int], List[List[int]]]:
         encoded_sequence = []
@@ -262,5 +269,6 @@ if __name__ == "__main__":
     selector = ModelEvidenceSelector()
     print(selector.select_evidences_batch(
         [{'text': 'sun is shining.'}],
-        [[{'title': 'Page1', 'line_idx': '0', 'text': 'Sun was good'}, ('Page1', '1', 'shining light')]]
+        [[{'title': 'Page1', 'line_idx': '0', 'text': 'Sun was good'},
+          ('Page1', '1', 'shining light')]]
     ))

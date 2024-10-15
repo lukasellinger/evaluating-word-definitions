@@ -1,14 +1,23 @@
 """Module for atomic fact loss."""
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from losses.custom_huber_loss import CustomHuberLoss
 
 
 class AtomicFactsLoss(nn.Module):
+    """Custom loss function for atomic fact prediction using Huber Loss."""
     def __init__(self, delta=0.66, huber_delta=0.3, pos_weight=1, neg_weight=1):
-        super(AtomicFactsLoss, self).__init__()
+        """
+        Initialize the AtomicFactsLoss class.
+
+        :param delta: Threshold used for the loss calculation.
+        :param huber_delta: Delta parameter for the Huber loss.
+        :param pos_weight: Weight for positive class.
+        :param neg_weight: Weight for negative class.
+        """
+        super().__init__()
         self.pos_weight = pos_weight
         self.neg_weight = neg_weight
         self.delta = delta
@@ -16,6 +25,14 @@ class AtomicFactsLoss(nn.Module):
         self.huber_loss = CustomHuberLoss(delta=huber_delta)
 
     def forward(self, y, atomic_preds, claim_mask):
+        """
+        Forward pass for computing the loss based on atomic facts and predictions.
+
+        :param y: Ground truth labels.
+        :param atomic_preds: Predictions for atomic facts.
+        :param claim_mask: Mask to indicate which parts of the input are relevant for each example.
+        :return: Computed loss.
+        """
         a = (atomic_preds.unsqueeze(0) * claim_mask.unsqueeze(2)).squeeze(2)
         atomic_facts_count = a.count_nonzero(dim=1)
 

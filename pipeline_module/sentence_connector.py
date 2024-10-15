@@ -8,6 +8,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
 class SentenceConnector(ABC):
     """Abstract base class for connecting words to their definitions in text."""
+
     def __call__(self, batch: List[Dict]) -> List[Dict]:
         """
         Connects words to their definitions by calling the connect_batch method.
@@ -36,6 +37,8 @@ class SentenceConnector(ABC):
 
 
 class ColonSentenceConnector(SentenceConnector):
+    """Sentence Connector using a Colon."""
+
     def __call__(self, batch: List[Dict]) -> List[Dict]:
         return self.connect_batch(batch)
 
@@ -47,7 +50,10 @@ class ColonSentenceConnector(SentenceConnector):
 
 
 class PhiSentenceConnector(SentenceConnector):
-    def __init__(self, model_name: str = "microsoft/Phi-3-mini-4k-instruct", use_flash_attn: bool = False):
+    """Sentence Connector using microsoft/Phi-3-mini-4k-instruct."""
+
+    def __init__(self, model_name: str = "microsoft/Phi-3-mini-4k-instruct",
+                 use_flash_attn: bool = False):
         self.model_name = model_name
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.pipe = None
@@ -96,7 +102,8 @@ class PhiSentenceConnector(SentenceConnector):
         prompts = [self.get_prompt(entry['word'], entry['text']) for entry in batch]
         outputs = self.pipe(prompts, **self.generation_args)
 
-        return [{'text': self.clean_output(entry, output[0]['generated_text'].strip())} for entry, output in zip(batch, outputs)]
+        return [{'text': self.clean_output(entry, output[0]['generated_text'].strip())} for
+                entry, output in zip(batch, outputs)]
 
     @staticmethod
     def get_prompt(word: str, text: str) -> List[Dict[str, str]]:
@@ -170,13 +177,16 @@ class PhiSentenceConnector(SentenceConnector):
         l_word = entry['word'].lower()
         l_output = output.lower()
 
-        if not l_output.startswith(l_word) and not l_output.startswith((f'a {l_word}', f'an {l_word}', f'the {l_word}')):
+        if not l_output.startswith(l_word) and not l_output.startswith((f'a {l_word}',
+                                                                        f'an {l_word}',
+                                                                        f'the {l_word}')):
             for pronoun in ('mine', 'your', 'his', 'her', 'its', 'our', 'their'):
                 if l_output.startswith(pronoun):
                     output = f"A {output[len(pronoun) + 1:]}"
                     l_output = output.lower()
                     break
-            if not l_output.startswith(l_word) and not l_output.startswith(f'a {l_word}') or entry['text'].lower() not in l_output:
+            if not l_output.startswith(l_word) and not l_output.startswith(f'a {l_word}') or entry[
+                'text'].lower() not in l_output:
                 output = f"{entry['word']}: {entry['text']}"
         return output
 

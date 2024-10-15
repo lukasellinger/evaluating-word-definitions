@@ -1,3 +1,4 @@
+"""Script for the creation of the Wiktionary Mini/Large dataset."""
 from datasets import load_dataset, concatenate_datasets, Dataset, DatasetDict
 
 from config import PROJECT_DIR, HF_WRITE_TOKEN
@@ -13,7 +14,8 @@ data_files = {
 dataset = load_dataset('parquet', data_files=data_files)
 combined_dataset = concatenate_datasets([dataset['test']])
 combined_dataset = combined_dataset.shuffle(seed=42)
-combined_dataset = combined_dataset.filter(lambda example: is_single_word(example['title'], lang='de'))
+combined_dataset = combined_dataset.filter(lambda example: is_single_word(example['title'],
+                                                                          lang='de'))
 
 # Select 100 samples
 sample_dataset = combined_dataset.select(range(100))
@@ -21,7 +23,8 @@ sample_dataset = sample_dataset.rename_column('title', 'word')
 sample_dataset = sample_dataset.rename_column('wiktionary_gt', 'claim')
 sample_dataset = sample_dataset.rename_column('gt', 'llama_claim')
 
-sample_dataset = sample_dataset.map(lambda examples, idx: {'id': idx + 1, 'label': 'SUPPORTED'}, with_indices=True)
+sample_dataset = sample_dataset.map(lambda examples, idx: {'id': idx + 1, 'label': 'SUPPORTED'},
+                                    with_indices=True)
 
 df = sample_dataset.to_pandas()
 
@@ -35,4 +38,5 @@ sample_dataset = Dataset.from_pandas(df)
 data_dict = DatasetDict()
 data_dict['test'] = sample_dataset
 
-data_dict.push_to_hub('lukasellinger/german_wiktionary-claim_verification-mini', private=True, token=HF_WRITE_TOKEN)
+data_dict.push_to_hub('lukasellinger/german_wiktionary-claim_verification-mini',
+                      private=True, token=HF_WRITE_TOKEN)

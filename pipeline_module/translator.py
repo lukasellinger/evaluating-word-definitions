@@ -63,12 +63,14 @@ class OpusMTTranslator(Translator):
         self.model = None
 
     def load_model(self):
+        """Load the machine learning model for translation, if not already loaded."""
         if self.model is None:
             self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
             self.model.to(self.device)
             self.model.eval()
 
     def unload_model(self):
+        """Unload the machine learning model and free up GPU resources."""
         if self.model is not None:
             del self.model
             torch.cuda.empty_cache()

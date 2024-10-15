@@ -94,15 +94,18 @@ class ModelStatementVerifier(StatementVerifier):
         if self.premise_sent_order not in {'reverse', 'top_last', 'keep'}:
             raise ValueError(
                 "premise_sent_order needs to be either 'reverse', 'top_last', or 'keep'")
-        if len(hypo_sents) == 0:
+
+        if not hypo_sents:
             return ''
 
         if self.premise_sent_order == 'reverse':
-            return ' '.join([sentence for sentence in hypo_sents[::-1]])
+            ordered_sents = hypo_sents[::-1]
         elif self.premise_sent_order == 'top_last':
-            return ' '.join([sentence for sentence in hypo_sents[1:] + [hypo_sents[0]]])
-        elif self.premise_sent_order == 'keep':
-            return ' '.join(hypo_sents)
+            ordered_sents = hypo_sents[1:] + [hypo_sents[0]]
+        else:  # 'keep'
+            ordered_sents = hypo_sents
+
+        return ' '.join(ordered_sents)
 
     def verify_statement_batch(self,
                                statements: List[Dict], evids_batch: List[List[Dict]]) -> List[Dict]:

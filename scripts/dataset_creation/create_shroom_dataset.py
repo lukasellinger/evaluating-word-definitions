@@ -1,3 +1,4 @@
+"""Script for the creation of the SHROOM dataset."""
 import re
 
 from config import HF_WRITE_TOKEN, PROJECT_DIR
@@ -16,6 +17,7 @@ b = dataset['modelaware']
 
 
 def extract_word(example):
+    """Extract the word of the src sentence."""
     # Use regex to find the word inside <define> tags
     match = re.search(r'<define>(.*?)</define>', example['src'])
     label = 'SUPPORTED' if example['label'] == 'Not Hallucination' else 'NOT_SUPPORTED'

@@ -38,7 +38,6 @@ class EvidenceFetcher(ABC):
         :param word_lang: Language code for the word.
         :return: Tuple containing the word and its evidence.
         """
-        pass
 
     @abstractmethod
     def fetch_evidences_batch(self, batch: List[Dict], only_intro: bool = True,
@@ -51,7 +50,6 @@ class EvidenceFetcher(ABC):
         :param word_lang: Language code for the word.
         :return: Tuple of lists: evidence words and evidence details.
         """
-        pass
 
     @abstractmethod
     def get_max_intro_sent_idx(self) -> Dict:
@@ -59,7 +57,6 @@ class EvidenceFetcher(ABC):
         Fetch dict keeping the index of the last sentence of every intro passage.
         Right now, only offline needs to be supported.
         """
-        pass
 
 
 class WikipediaEvidenceFetcher(EvidenceFetcher):
@@ -105,7 +102,7 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
             {
                 'word': wiki_word,
                 'evidences': [
-                    {'title': page, 'line_indices': [i for i in range(len(lines))], 'lines': lines}
+                    {'title': page, 'line_indices': list(range(len(lines))), 'lines': lines}
                     for page, lines in texts],
             }
             for entry in batch

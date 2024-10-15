@@ -22,13 +22,13 @@ dataset = Dataset.from_sql("""select dd.id, dd.claim as claim, dd.label, docs.do
                                   limit 1000""",
                            con=DB_URL)
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+MODEL_NAME = "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7"
 
-model_name = "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForSequenceClassification.from_pretrained(model_name)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME)
 
-verification_model = ClaimVerificationModel(model).to(device)
+verification_model = ClaimVerificationModel(model).to(DEVICE)
 train_dataset = DefinitionDataset(dataset, tokenizer, mode='validation', model='claim_verification')
 train_dataloader = DataLoader(train_dataset, shuffle=True,
                               collate_fn=train_dataset.collate_fn,

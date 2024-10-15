@@ -7,7 +7,7 @@ import nltk
 
 def install_spacy_model(model):
     """Install spacy model."""
-    subprocess.run(["python", "-m", "spacy", "download", model])
+    subprocess.run(["python", "-m", "spacy", "download", model], check=True)
 
 
 if __name__ == "__main__":

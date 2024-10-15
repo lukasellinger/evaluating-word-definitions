@@ -26,17 +26,17 @@ dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id
                                   limit 50""",
                            con=DB_URL)
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 #tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
 #model = AutoModel.from_pretrained('sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
 
-model_name = 'Snowflake/snowflake-arctic-embed-m-long'
-model = AutoModel.from_pretrained(model_name,
+MODEL_NAME = 'Snowflake/snowflake-arctic-embed-m-long'
+model = AutoModel.from_pretrained(MODEL_NAME,
                                   trust_remote_code=True,
                                   add_pooling_layer=False,
                                   safe_serialization=True)
 
-selection_model = EvidenceSelectionModel(model).to(device)
+selection_model = EvidenceSelectionModel(model).to(DEVICE)
 
 # Add all lora compatible modules
 target_modules = []
@@ -52,9 +52,9 @@ peft_config = LoraConfig(task_type=TaskType.FEATURE_EXTRACTION,
 model = get_peft_model(model, peft_config) # 40
 model.print_trainable_parameters()
 
-selection_model = EvidenceSelectionModel(model).to(device)
+selection_model = EvidenceSelectionModel(model).to(DEVICE)
 
-tokenizer = AutoTokenizer.from_pretrained(model_name)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 #selection_model = DummyEvidenceSelectionModel()
 
 #test = SentenceContextContrastiveDataset(dataset, tokenizer)
@@ -70,6 +70,7 @@ criterion = SupConLoss()
 #criterion = BCELoss()
 
 def convert_to_labels(similarities, labels, k=2):
+    """Convert similarities to match labels shape."""
     top_indices = torch.topk(similarities, k=min(k, similarities.size(1)))[1]
     predicted = torch.zeros_like(similarities)
     predicted.scatter_(1, top_indices, 1)

@@ -10,7 +10,9 @@ import torch.nn.functional as F
 class EvidenceSelectionModel(nn.Module):
     """Model to compute sentence embeddings."""
 
-    def __init__(self, model, feed_forward=False, normalize_before_fc=True, out_features=256, device=None):
+    def __init__(self,
+                 model,
+                 feed_forward=False, normalize_before_fc=True, out_features=256, device=None):
         super().__init__()
         self.model = model
         self.device = device or "cuda" if torch.cuda.is_available() else "cpu"
@@ -36,8 +38,8 @@ class EvidenceSelectionModel(nn.Module):
         """Forward function."""
         if sentence_mask is None:
             sentence_mask = attention_mask.unsqueeze(dim=1)
-            #sentence_mask = torch.zeros_like(attention_mask.unsqueeze(dim=1))
-            #sentence_mask[:, :, 0] = 1  # try only cls
+            # sentence_mask = torch.zeros_like(attention_mask.unsqueeze(dim=1))
+            # sentence_mask[:, :, 0] = 1  # try only cls
 
         # When the length of the sequence exceeds the maximum position embeddings, the 'base'
         # variable is adjusted in the dynamic rotary embedding computation. This change in 'base'
@@ -71,15 +73,15 @@ class EvidenceSelectionModel(nn.Module):
             torch.save(self.fc.state_dict(), f'{name}_fc.pth')
         else:
             self.model.save_pretrained(f'{name}')
-            
-            
+
+
 class DummyEvidenceSelectionModel(EvidenceSelectionModel):
     """Dummy Test Model."""
-    
+
     def __init__(self):
         super().__init__(model=None)
 
-    def forward(self, input_ids=None, attention_mask=None, sentence_mask=None):
+    def forward(self, input_ids=None, attention_mask=None, sentence_mask=None, **kwargs):
         """Return tensor with ones of shape (input_ids.shape[0], 1, 1)."""
         if sentence_mask is None:
             sentence_mask = torch.ones((input_ids.shape[0], 1, 1))

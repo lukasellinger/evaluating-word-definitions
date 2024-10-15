@@ -306,7 +306,8 @@ class Wikipedia:
             if return_raw:
                 texts.update(self._split_text(title, '', text, split_level='none'))
             else:
-                # text = self._clean_text(text)
+                if not title.endswith('(wiktionary)'):
+                    text = self._clean_text(text)
                 texts.update(self._split_text(title, '', text, split_level))
         return list(texts.items()), search_word
 
@@ -410,5 +411,7 @@ if __name__ == "__main__":
     # assert len(full_docs) == len(intro_docs), f'For Hammer, len(intro) != len(full)'
 
     # wiki.get_text_from_title(['Love (Masaki Suda album)'])
-    a = wiki.get_pages_online(word='Apfel', fallback_word='apple', split_level='sentence', only_intro=True,
-                               return_raw=False)
+    # a = wiki.get_pages_online(word='Apfel', fallback_word='apple', split_level='sentence', only_intro=True,
+    #                           return_raw=False)
+    a = wiki.get_pages_offline(search_word='china', only_intro=True, return_raw=False, split_level='sentence')
+    # check clean_text if different only do it for full page :D
