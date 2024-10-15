@@ -1,3 +1,4 @@
+"""Create dataset from jans data to database."""
 from langdetect import detect
 from tqdm import tqdm
 
@@ -9,7 +10,8 @@ from general_utils.utils import remove_non_alphabetic_start_end
 
 
 def main(table, json_table):
-    CREATE_GER_DATASET = f"""
+    """Main for different tables."""
+    create_ger_dataset = f"""
     CREATE TABLE IF NOT EXISTS {table} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         word VARCHAR,
@@ -22,13 +24,13 @@ def main(table, json_table):
         );
     """
 
-    INSERT_ENTRY = f"""
+    insert_entry = f"""
     INSERT OR IGNORE INTO {table} (word, label, claim, context_sentence)
     VALUES (?, ?, ?, ?)
     """
 
     with FeverDocDB() as db:
-        db.write(CREATE_GER_DATASET)
+        db.write(create_ger_dataset)
 
     table = JSONReader().read(json_table)
     data = table.get('data')
@@ -53,10 +55,10 @@ def main(table, json_table):
                 continue
 
             label = "SUPPORTED"
-            db.write(INSERT_ENTRY, (word, label, claim, context_sentence))
+            db.write(insert_entry, (word, label, claim, context_sentence))
 
 
 if __name__ == "__main__":
-    table = 'german_dataset'
-    json_table = PROJECT_DIR.joinpath('dataset/jan_eval_results_table.json')
-    main(table, json_table)
+    TABLE = 'german_dataset'
+    dataset_json_table = PROJECT_DIR.joinpath('dataset/jan_eval_results_table.json')
+    main(TABLE, dataset_json_table)

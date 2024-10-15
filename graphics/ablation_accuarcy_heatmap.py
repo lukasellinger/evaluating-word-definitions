@@ -1,5 +1,5 @@
+"""Create svg for ablation accuracy heatmap."""
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import seaborn as sns
 
@@ -13,15 +13,16 @@ data = {
 }
 
 # Convert to DataFrame
-df = pd.DataFrame(data, index=['1 Sentence', '2 Sentences', '3 Sentences', '4 Sentences', '5 Sentences'])
+df = pd.DataFrame(data, index=['1 Sentence', '2 Sentences', '3 Sentences',
+                               '4 Sentences', '5 Sentences'])
 
 # Set the minimum and maximum values for consistent color coding
 vmin = df.min().min()
 vmax = df.max().max()
 
 # Set font scale and plot the heatmap
-font_scale = 2.5
-sns.set(font_scale=font_scale)
+FONT_SCALE = 2.5
+sns.set(font_scale=FONT_SCALE)
 
 plt.figure(figsize=(16, 10))
 sns.heatmap(df, annot=True, cmap='YlGnBu', fmt='.4f', linewidths=.5,

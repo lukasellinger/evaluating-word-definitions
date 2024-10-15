@@ -1,3 +1,4 @@
+"""Create svg for normal vs split claims."""
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
@@ -25,7 +26,8 @@ df.set_index('Metric', inplace=True)
 
 # Split the DataFrame into two: one for the original models and one for the 'Splitted' models
 df_original = df[['Pipeline', 'GPT-3.5 Turbo', 'GPT-4o mini', 'GPT-4o']]
-df_splitted = df[['Pipeline Splitted', 'GPT-3.5 Turbo Splitted', 'GPT-4o mini Splitted', 'GPT-4o Splitted']]
+df_splitted = df[['Pipeline Splitted', 'GPT-3.5 Turbo Splitted',
+                  'GPT-4o mini Splitted', 'GPT-4o Splitted']]
 
 # Rename columns of df_splitted to remove "Splitted"
 df_splitted.columns = ['Pipeline', 'GPT-3.5 Turbo', 'GPT-4o mini', 'GPT-4o']
@@ -35,8 +37,8 @@ vmin = min(df_original.min().min(), df_splitted.min().min())
 vmax = max(df_original.max().max(), df_splitted.max().max())
 
 # Set even larger font sizes
-font_scale = 2.5  # Further increase the font scale
-sns.set(font_scale=font_scale)
+FONT_SCALE = 2.5  # Further increase the font scale
+sns.set(font_scale=FONT_SCALE)
 
 # Plot the original models heatmap
 plt.figure(figsize=(16, 10))  # Increased figure size for better readability

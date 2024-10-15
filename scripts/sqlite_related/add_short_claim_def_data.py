@@ -1,9 +1,10 @@
+"""Add short claim to def data."""
 from tqdm import tqdm
 
 from database.db_retriever import FeverDocDB
 from general_utils.spacy_utils import get_words_after_root
 
-UPDATE_TRANSLATION = f"""
+UPDATE_TRANSLATION = """
 UPDATE def_dataset
 SET short_claim = ?
 WHERE id = ? and claim=?;

@@ -1,3 +1,4 @@
+"""Create dataset from question answering data to database."""
 from datasets import concatenate_datasets, load_dataset
 from tqdm import tqdm
 
@@ -7,7 +8,8 @@ from general_utils.spacy_utils import (create_german_fact,
 
 
 def main(table, dataset_name):
-    CREATE_GERMAN_DATASET = f"""
+    """Main for different tables."""
+    create_german_dataset = f"""
     CREATE TABLE IF NOT EXISTS {table} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         question TEXT,
@@ -21,17 +23,18 @@ def main(table, dataset_name):
     );
     """
 
-    INSERT_ENTRY = f"""
+    insert_entry = f"""
     INSERT INTO {table} (question, claim, fact, word, context, label)
     VALUES (?, ?, ?, ?, ?, ?)
     """
 
     with FeverDocDB() as db:
-        db.write(CREATE_GERMAN_DATASET)
+        db.write(create_german_dataset)
 
     dataset = load_dataset(dataset_name)
     dataset_dpr_cc = concatenate_datasets([dataset['train'], dataset['test']])
-    filtered_dataset = dataset_dpr_cc.filter(lambda i: is_german_def_question(i['question'].strip()))
+    filtered_dataset = dataset_dpr_cc.filter(lambda i:
+                                             is_german_def_question(i['question'].strip()))
 
     with FeverDocDB() as db:
         for entry in tqdm(filtered_dataset, desc='Inserting Entry'):
@@ -46,9 +49,8 @@ def main(table, dataset_name):
             # as for the others we cannot be sure if we can nevertheless find it.
             for pos_ctx in entry['positive_ctxs']['text']:
                 label = 'SUPPORTED'
-                db.write(INSERT_ENTRY, (question, answer, fact, entity, pos_ctx, label))
+                db.write(insert_entry, (question, answer, fact, entity, pos_ctx, label))
 
 
 if __name__ == "__main__":
     main('german_dpr_dataset', 'deepset/germandpr')
-

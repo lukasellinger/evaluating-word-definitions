@@ -1,14 +1,15 @@
+"""Create squad dataset."""
 from datasets import concatenate_datasets, load_dataset
 from tqdm import tqdm
 
 from database.db_retriever import FeverDocDB
-from general_utils.spacy_utils import (create_english_fact, is_single_word,
-                                       split_into_sentences)
+from general_utils.spacy_utils import create_english_fact, split_into_sentences
 from general_utils.utils import find_substring_in_list
 
 
 def main(table, dataset_name):
-    CREATE_DATASET = f"""
+    """Main for different tables."""
+    create_dataset = f"""
     CREATE TABLE IF NOT EXISTS {table} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         question TEXT,
@@ -22,7 +23,7 @@ def main(table, dataset_name):
     );
     """
 
-    INSERT_ENTRY = f"""
+    insert_entry = f"""
     INSERT INTO {table} (question, claim, fact, word, wiki_page, context, start_sentence, label)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """
@@ -31,7 +32,7 @@ def main(table, dataset_name):
     dataset_dpr_cc = concatenate_datasets([dataset['train'], dataset['validation']])
 
     with FeverDocDB() as db:
-        db.write(CREATE_DATASET)
+        db.write(create_dataset)
 
         for entry in tqdm(dataset_dpr_cc, desc='Inserting Entry'):
             question = entry['question']
@@ -57,17 +58,9 @@ def main(table, dataset_name):
 
                 wiki_page = entry.get('title')
                 label = 'SUPPORTED'
-                db.write(INSERT_ENTRY, (question, answer, fact, entity, wiki_page, context,
+                db.write(insert_entry, (question, answer, fact, entity, wiki_page, context,
                                         start_sentence, label))
 
 
 if __name__ == "__main__":
     main('squad_dataset', 'rajpurkar/squad')
-
-    a = """
-    select distinct dd.id, docs.document_id, docs.text, dd.claim, dd.label, group_concat(dd.evidence_sentence_id, ';') as evidence_lines, GROUP_CONCAT(af.fact, '--;--') as atomic_facts
-from def_dataset dd
-    join documents docs on docs.document_id = dd.evidence_wiki_url
-    join atomic_facts af on af.claim_id = dd.id
-where set_type='dev' --'{set_type}' -- and length(claim) < 50 and length(docs.text) < 400
-group by dd.id, evidence_annotation_id, evidence_wiki_url"""

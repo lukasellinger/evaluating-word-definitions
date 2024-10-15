@@ -10,7 +10,7 @@ from typing import List, Tuple
 import torch
 from torch.utils.data import Dataset
 
-from general_utils.utils import convert_to_unicode, process_sentence_wiki
+from general_utils.utils import process_sentence_wiki
 
 
 class Fact(Enum):
@@ -347,7 +347,7 @@ class SentenceContextDataset(Dataset):
 
         if self.mode == "train":
             return {"model_input": model_input, "labels": labels}
-        elif self.mode == "validation":
+        if self.mode == "validation":
             documents = [i["document_id"] for i in batch]
             claim_ids = [i["id"] for i in batch]
             claim_lengths = [len(i["claim"]) for i in batch]
@@ -356,6 +356,7 @@ class SentenceContextDataset(Dataset):
             return {"model_input": model_input, "labels": labels, "documents": documents,
                     "claim_id": claim_ids, "claim_length": torch.tensor(claim_lengths),
                     "doc_length": torch.tensor(doc_lengths)}
+        return None
 
 
 class SentenceContextContrastiveDataset(SentenceContextDataset):
@@ -445,7 +446,7 @@ class SentenceContextContrastiveDataset(SentenceContextDataset):
 
         if self.mode == "train":
             return {"model_input": model_input, "labels": labels}
-        elif self.mode == "validation":
+        if self.mode == "validation":
             documents = [i["document_id"] for i in batch]
             claim_ids = [i["id"] for i in batch]
             claim_lengths = [len(i["claim"]) for i in batch]

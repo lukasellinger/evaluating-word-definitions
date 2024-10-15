@@ -1,8 +1,9 @@
+"""Upload a dataset to huggingface."""
 from datasets import Dataset, DatasetDict
 
 from config import DB_URL, HF_WRITE_TOKEN
 
-dataset_query = """
+DATASET_QUERY = """
 WITH unique_claims AS (
      SELECT DISTINCT
          dd.id,
@@ -29,11 +30,11 @@ WHERE uq.set_type = '{set_type}'
 GROUP BY uq.id, docs.document_id;
 """
 
-train_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='train'),
+train_dataset_raw = Dataset.from_sql(DATASET_QUERY.format(set_type='train'),
                                      cache_dir=None, con=DB_URL)
-dev_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='dev'),
+dev_dataset_raw = Dataset.from_sql(DATASET_QUERY.format(set_type='dev'),
                                    cache_dir=None, con=DB_URL)
-test_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='test'),
+test_dataset_raw = Dataset.from_sql(DATASET_QUERY.format(set_type='test'),
                                     cache_dir=None, con=DB_URL)
 
 combined_datasets = DatasetDict({
@@ -85,10 +86,14 @@ combined_datasets.push_to_hub("lukasellinger/filtered_fever_claim_verification",
 # group by gdd.id
 # """
 
-#dataset.push_to_hub("lukasellinger/squad_claim_verification_dissim-v1", private=True, token=HF_WRITE_TOKEN)
-# train_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='train'), cache_dir=None, con=DB_URL)
-# dev_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='dev'), cache_dir=None, con=DB_URL)
-# test_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='test'), cache_dir=None, con=DB_URL)
+#dataset.push_to_hub("lukasellinger/squad_claim_verification_dissim-v1",
+# private=True, token=HF_WRITE_TOKEN)
+# train_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='train'),
+# cache_dir=None, con=DB_URL)
+# dev_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='dev'),
+# cache_dir=None, con=DB_URL)
+# test_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='test'),
+# cache_dir=None, con=DB_URL)
 #
 # combined_datasets = DatasetDict({
 #      "train": train_dataset_raw,
@@ -96,5 +101,5 @@ combined_datasets.push_to_hub("lukasellinger/filtered_fever_claim_verification",
 #      "test": test_dataset_raw
 # })
 #
-# combined_datasets.push_to_hub("lukasellinger/fever_claim_verification_dissim-v1", private=True, token=HF_WRITE_TOKEN)
-
+# combined_datasets.push_to_hub("lukasellinger/fever_claim_verification_dissim-v1",
+# private=True, token=HF_WRITE_TOKEN)

@@ -44,8 +44,7 @@ class WordReplacer:
 
         if self.only_english:
             return self.get_english_replacement(word, word_set, use_antonyms)
-        else:
-            return self.get_german_replacement(word, word_set, use_antonyms)
+        return self.get_german_replacement(word, word_set, use_antonyms)
 
     def get_german_replacement(self, word, word_set, use_antonyms: bool = None):
         """

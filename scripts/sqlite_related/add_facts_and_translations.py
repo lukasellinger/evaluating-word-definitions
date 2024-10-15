@@ -1,3 +1,4 @@
+"""Script to add facts and translations to dataset in database"""
 from tqdm import tqdm
 
 from config import HF_READ_TOKENS
@@ -7,7 +8,8 @@ from pipeline_module.claim_splitter import MixtralSplitter
 
 
 def main(table, fact_table, explanation_table):
-    CREATE_ATOMIC_FACTS = f"""
+    """Main for different tables."""
+    create_atomic_facts = f"""
     CREATE TABLE IF NOT EXISTS {fact_table} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         claim_id INTEGER,
@@ -15,32 +17,32 @@ def main(table, fact_table, explanation_table):
         );  
     """
 
-    CREATE_EXPLANATIONS = f"""
+    create_explanations = f"""
     CREATE TABLE IF NOT EXISTS {explanation_table} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         claim_id INTEGER,
         explanation TEXT);
     """
 
-    INSERT_FACT = f"""
+    insert_fact = f"""
     INSERT INTO {fact_table} (claim_id, fact)
     VALUES (?, ?);
     """
 
-    UPDATE_TRANSLATION = f"""
+    update_translation = f"""
     UPDATE {table}
     SET english_claim = ?, english_word = ?
     WHERE id = ?;
     """
 
-    INSERT_EXPLANATION = f"""
+    insert_explanation = f"""
     INSERT INTO {explanation_table} (claim_id, explanation)
     VALUES (?, ?);
     """
 
     with FeverDocDB() as db:
-        db.write(CREATE_ATOMIC_FACTS)
-        db.write(CREATE_EXPLANATIONS)
+        db.write(create_atomic_facts)
+        db.write(create_explanations)
         claims = db.read(f"""SELECT DISTINCT dd.id, dd.word, dd.claim
                             FROM {table} dd
                             LEFT JOIN {fact_table} af on af.claim_id = dd.id
@@ -68,7 +70,7 @@ def main(table, fact_table, explanation_table):
                 english_word = translator.get_translation(word)
                 english_claim = translator.get_translation(claim)
 
-            db.write(UPDATE_TRANSLATION, (english_claim, english_word, claim_id))
+            db.write(update_translation, (english_claim, english_word, claim_id))
 
             if len(claim) <= 30:  # these are not split into atomic facts
                 continue
@@ -76,14 +78,14 @@ def main(table, fact_table, explanation_table):
             english_facts = extractor.get_atomic_claims(f'{english_word}: {english_claim}')
 
             for fact in english_facts.get('splits'):
-                db.write(INSERT_FACT, (claim_id, fact))
+                db.write(insert_fact, (claim_id, fact))
 
             if explanation := english_facts.get('explanation'):
-                db.write(INSERT_EXPLANATION, (claim_id, explanation))
+                db.write(insert_explanation, (claim_id, explanation))
 
 
 if __name__ == "__main__":
-    table = 'german_dataset'
-    fact_table = 'atomic_facts_german_mixtral'
-    explanation_table = 'atomic_facts_german_explanation_mixtral'
-    main(table, fact_table, explanation_table)
+    TABLE = 'german_dataset'
+    FACT_TABLE = 'atomic_facts_german_mixtral'
+    EXPLANATION_TABLE = 'atomic_facts_german_explanation_mixtral'
+    main(TABLE, FACT_TABLE, EXPLANATION_TABLE)

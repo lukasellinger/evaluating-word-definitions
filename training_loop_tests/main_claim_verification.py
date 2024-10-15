@@ -11,8 +11,8 @@ from dataset.def_dataset import DefinitionDataset
 from models.claim_verification_model import ClaimVerificationModel
 from training_loop_tests.utils import plot_stats
 
-dataset = Dataset.from_sql("""select dd.id, dd.claim as claim, dd.label, docs.document_id, 
-                                         docs.text, docs.lines, 
+dataset = Dataset.from_sql("""select dd.id, dd.claim as claim, dd.label, docs.document_id,
+                                         docs.text, docs.lines,
                                          group_concat(dd.evidence_sentence_id) as evidence_lines
                                   from def_dataset dd
                                     join documents docs on docs.document_id = dd.evidence_wiki_url

@@ -220,7 +220,8 @@ class Wikipedia:
         :return: A dictionary with page titles as keys and the corresponding fetched text as values.
         """
         results = {}
-        for batch_pages in self._chunk(page_titles, 50):  # wikipedia api supports a maximum of 50
+        # wikipedia api supports a maximum of 50
+        for batch_pages in self._chunk(page_titles, 50):
             params = {
                 "action": "query",
                 "format": "json",
@@ -281,9 +282,8 @@ class Wikipedia:
         """
         if self.offline_backend and search_word:
             return self.get_pages_offline(search_word, only_intro, return_raw, split_level)
-        else:
-            return self.get_pages_online(word, fallback_word, word_lang, only_intro, split_level,
-                                         return_raw)
+        return self.get_pages_online(word, fallback_word, word_lang,
+                                     only_intro, split_level, return_raw)
 
     def get_pages_offline(self, search_word: str, only_intro: bool, return_raw: bool,
                           split_level: str) -> Tuple[List, any]:
@@ -324,7 +324,8 @@ class Wikipedia:
         :param word_lang: The language of the word (default: None).
         :param only_intro: Whether to retrieve only the introductory section (default: True).
         :param split_level: The level at which to split the text ('sentence', 'passage', 'none').
-        :param return_raw: Whether to return raw text without cleaning or splitting (default: False).
+        :param return_raw: Whether to return raw text without cleaning or splitting
+        (default: False).
         :return: A list of tuples containing page titles and corresponding content.
         """
         word = word.lower()  # lower to find all results
@@ -408,11 +409,14 @@ if __name__ == "__main__":
     wiki = Wikipedia(use_dataset='lukasellinger/wiki_dump_2024-08-14')
 
     # full_docs, _ = wiki.get_pages('Hammer', 'Hammer', 'de', only_intro=False, return_raw=True)
-    # intro_docs, document_search_word = wiki.get_pages('Hammer', 'Hammer', word_lang='de', only_intro=True, return_raw=True)
+    # intro_docs, document_search_word = wiki.get_pages('Hammer', 'Hammer', word_lang='de',
+    # only_intro=True, return_raw=True)
     # assert len(full_docs) == len(intro_docs), f'For Hammer, len(intro) != len(full)'
 
     # wiki.get_text_from_title(['Love (Masaki Suda album)'])
-    # a = wiki.get_pages_online(word='Apfel', fallback_word='apple', split_level='sentence', only_intro=True,
+    # a = wiki.get_pages_online(word='Apfel', fallback_word='apple', split_level='sentence',
+    # only_intro=True,
     #                           return_raw=False)
-    a = wiki.get_pages_offline(search_word='china', only_intro=True, return_raw=False, split_level='sentence')
+    a = wiki.get_pages_offline(search_word='china', only_intro=True, return_raw=False,
+                               split_level='sentence')
     # check clean_text if different only do it for full page :D

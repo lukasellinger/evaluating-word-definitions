@@ -1,3 +1,4 @@
+"""Create translations for database."""
 import requests
 from transformers import pipeline
 
@@ -22,13 +23,14 @@ headers = {"Authorization": f"Bearer {HF_READ_TOKENS[0]}"}
 
 
 def query(payload):
-    response = requests.post(API_URL, headers=headers, json=payload)
+    """Request to API_URL."""
+    response = requests.post(API_URL, headers=headers, json=payload, timeout=10)
     return response.json()
 
 
 with FeverDocDB() as db:
     db.write(CREATE_CLAIM_TRANSLATIONS)
-    claims = db.read("""SELECT DISTINCT dd.id, dd.claim 
+    claims = db.read("""SELECT DISTINCT dd.id, dd.claim
                         FROM def_dataset dd
                         LEFT JOIN claim_translations ct on dd.id = ct.claim_id 
                         WHERE ct.id is NULL AND length(claim) <= 30""")

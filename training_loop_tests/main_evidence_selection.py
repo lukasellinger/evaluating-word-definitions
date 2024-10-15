@@ -16,8 +16,8 @@ from losses.supcon import SupConLoss
 from models.evidence_selection_model import EvidenceSelectionModel
 from training_loop_tests.utils import plot_stats
 
-dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id, 
-                                         docs.text, docs.lines, 
+dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id,
+                                         docs.text, docs.lines,
                                          group_concat(dd.evidence_sentence_id) as evidence_lines
                                   from def_dataset dd
                                     join documents docs on docs.document_id = dd.evidence_wiki_url
@@ -27,9 +27,6 @@ dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id
                            con=DB_URL)
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-#tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
-#model = AutoModel.from_pretrained('sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
-
 MODEL_NAME = 'Snowflake/snowflake-arctic-embed-m-long'
 model = AutoModel.from_pretrained(MODEL_NAME,
                                   trust_remote_code=True,
@@ -67,19 +64,20 @@ train_dataloader = DataLoader(train_dataset, shuffle=True,
                               collate_fn=train_dataset.collate_fn,
                               batch_size=10)
 criterion = SupConLoss()
-#criterion = BCELoss()
+# criterion = BCELoss()
+
 
 def convert_to_labels(similarities, labels, k=2):
     """Convert similarities to match labels shape."""
     top_indices = torch.topk(similarities, k=min(k, similarities.size(1)))[1]
-    predicted = torch.zeros_like(similarities)
-    predicted.scatter_(1, top_indices, 1)
+    predicted_reshaped = torch.zeros_like(similarities)
+    predicted_reshaped.scatter_(1, top_indices, 1)
 
-    top_k_hits = labels[torch.arange(labels.size(0)).unsqueeze(1), top_indices]
-    top_k_hits = torch.any(top_k_hits == 1, dim=1).float()
+    top_k_hits_reshaped = labels[torch.arange(labels.size(0)).unsqueeze(1), top_indices]
+    top_k_hits_reshaped = torch.any(top_k_hits_reshaped == 1, dim=1).float()
 
     mask = (labels != -1).flatten()
-    return predicted.flatten()[mask], labels.flatten()[mask], top_k_hits
+    return predicted_reshaped.flatten()[mask], labels.flatten()[mask], top_k_hits_reshaped
 
 
 gt_labels = []
@@ -109,6 +107,7 @@ for batch in tqdm(train_dataloader):
 
     if 'claim_length' in batch and 'doc_length' in batch:
         def extend_to_labels(values, labels) -> list[int]:
+            """Extend it to match labels shape."""
             mask = (labels != -1).flatten()
             values = values.unsqueeze(1).expand(-1, labels.shape[1])
             values = values.flatten()[mask]

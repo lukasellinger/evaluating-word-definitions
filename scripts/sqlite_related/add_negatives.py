@@ -1,3 +1,4 @@
+"""Add negatives to dataset in database."""
 from collections import defaultdict
 
 from datasets import Dataset
@@ -9,7 +10,8 @@ from general_utils.word_replacer import WordReplacer
 
 
 def main(table, use_antonyms: bool, only_english: bool):
-    INSERT_ENTRY = f"""
+    """Main for different tables."""
+    insert_entry = f"""
     INSERT OR IGNORE INTO {table} (word, label, claim)
     VALUES (?, ?, ?)
     """
@@ -22,7 +24,7 @@ def main(table, use_antonyms: bool, only_english: bool):
         for entry in tqdm(dataset):
             word = entry.get('word')
             replacement, stat = word_replacer.get_replacement(word, word_set)
-            db.write(INSERT_ENTRY, (replacement, 'NOT_SUPPORTED', entry['claim']))
+            db.write(insert_entry, (replacement, 'NOT_SUPPORTED', entry['claim']))
             stats[stat] += 1
     return stats
 
@@ -34,5 +36,5 @@ if __name__ == "__main__":
     #stats = main('german_dpr_dataset', False)
     #print(stats)
 
-    stats = main('squad_dataset', True, only_english=True)
-    print(stats)
+    dataset_stats = main('squad_dataset', True, only_english=True)
+    print(dataset_stats)

@@ -95,11 +95,12 @@ class MixtralSplitter(ClaimSplitter):
     def query(self, payload, token):
         headers = {"Authorization": "Bearer {token}"}
         headers['Authorization'] = headers['Authorization'].format(token=token)
-        response = requests.post(self.API_URL, headers=headers, json=payload)
+        response = requests.post(self.API_URL, headers=headers, json=payload, timeout=10)
         return response.json()
 
     @staticmethod
-    def get_prompt(txt: str):
+    def get_prompt(txt: str) -> str:
+        """Gets the prompt for the text you want to split."""
         prompt = """<s> [INST] Please deconstruct the following statement into its main distinct autonomous facts. Refrain from using any external resources. You are not responsible for evaluating the truthfulness or correctness of these facts; your task is only to identify them. Do not be too finegrained: Mammals are vertebrates and encompass cars. [/INST]
         1. Mammals are vertebrates.
         2. Mammals encompass cars.

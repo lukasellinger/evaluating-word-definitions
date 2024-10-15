@@ -59,7 +59,7 @@ class OpenAiFetcher:
         """
         result_file_id = batch_job.output_file_id
         if not result_file_id:
-            return
+            return None
 
         result = self.client.files.content(result_file_id).content
 

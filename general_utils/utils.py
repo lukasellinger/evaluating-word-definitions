@@ -9,7 +9,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 from rank_bm25 import BM25Okapi
 from sklearn.metrics import accuracy_score, f1_score
-from transformers import RobertaTokenizer
 
 from config import PROJECT_DIR
 from general_utils.reader import JSONReader, LineReader
@@ -161,7 +160,7 @@ def sentence_simplification(sentences: List[str]):
     LineReader().write(discourse_simplification.joinpath('input.txt'), sentences, mode='w')
     command = ["mvn", "-f", discourse_simplification.joinpath("pom.xml"), "clean", "compile",
                "exec:java"]
-    subprocess.run(command, text=True, cwd=discourse_simplification)
+    subprocess.run(command, text=True, cwd=discourse_simplification, check=True)
     outputs = JSONReader().read(discourse_simplification.joinpath('output.json')).get('sentences')
     outputs = [{'text': entry.get('originalSentence'),
                 'splits': [split.get('text') for split in entry.get('elementMap').values()]}
@@ -255,7 +254,8 @@ def parse_model_answer(generated_answer: str, language='en'):
         else:
             is_supported = generated_answer.index(true_token) > generated_answer.index(false_token)
     else:
-        unsupported_keywords = (["nicht", "kann nicht", "unbekannt", "informationen"] if language == 'de'
+        unsupported_keywords = (["nicht", "kann nicht", "unbekannt", "informationen"]
+                                if language == 'de'
                                 else ["not", "cannot", "unknown", "information"])
         is_supported = all([keyword not in generated_answer.translate(
             str.maketrans("", "", string.punctuation)).split() for keyword in
@@ -267,7 +267,8 @@ def get_openai_prediction_log_probs(response, batched=True):
     if not batched:
         response = response.to_dict()
 
-    log_probs = response.get('choices', [])[0].get('logprobs', {}).get('content', [])[0].get('top_logprobs', [])
+    log_probs = response.get('choices', [])[0].get('logprobs',
+                                                   {}).get('content', [])[0].get('top_logprobs', [])
     sorted_logprobs = sorted(log_probs, key=lambda x: x.get('logprob'))  # sort ASC
 
     true_logprob = -np.inf
@@ -281,21 +282,19 @@ def get_openai_prediction_log_probs(response, batched=True):
 
     if true_logprob != -np.inf or false_logprob != -np.inf:
         return true_logprob, false_logprob
-    else:
-        return 'UNKNOWN'
+    return 'UNKNOWN'
 
 
 def get_openai_prediction(response):
     prediction = get_openai_prediction_log_probs(response)
     if prediction == 'UNKNOWN':
         return prediction
-    else:
-        true_logprob, false_logprob = get_openai_prediction_log_probs(response)
 
-        if true_logprob != -np.inf or false_logprob != -np.inf:
-            return 'SUPPORTED' if true_logprob > false_logprob else 'NOT_SUPPORTED'
-        else:
-            return 'UNKNOWN'
+    true_logprob, false_logprob = get_openai_prediction_log_probs(response)
+
+    if true_logprob != -np.inf or false_logprob != -np.inf:
+        return 'SUPPORTED' if true_logprob > false_logprob else 'NOT_SUPPORTED'
+    return 'UNKNOWN'
 
 
 def split_into_passages(text, tokenizer, max_lenght=256):
