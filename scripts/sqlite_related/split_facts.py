@@ -1,10 +1,9 @@
 from collections import defaultdict
 
+from more_itertools import chunked
 from tqdm import tqdm
 
 from database.db_retriever import FeverDocDB
-from more_itertools import chunked
-
 from pipeline_module.claim_splitter import T5SplitRephraseSplitter
 
 

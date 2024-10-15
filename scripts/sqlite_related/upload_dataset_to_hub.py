@@ -2,7 +2,6 @@ from datasets import Dataset, DatasetDict
 
 from config import DB_URL, HF_WRITE_TOKEN
 
-
 dataset_query = """
 WITH unique_claims AS (
      SELECT DISTINCT

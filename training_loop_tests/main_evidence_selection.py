@@ -1,19 +1,19 @@
 """Main evidence selection script."""
 import torch
+import torch.nn.functional as F
 import transformers
 from datasets import Dataset
-from peft import LoraConfig, get_peft_model, TaskType
-from sklearn.metrics import accuracy_score, f1_score, recall_score, classification_report
+from peft import LoraConfig, TaskType, get_peft_model
+from sklearn.metrics import (accuracy_score, classification_report, f1_score,
+                             recall_score)
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoModel, AutoTokenizer
 
 from config import DB_URL
 from dataset.def_dataset import DefinitionDataset
 from losses.supcon import SupConLoss
 from models.evidence_selection_model import EvidenceSelectionModel
-import torch.nn.functional as F
-
 from training_loop_tests.utils import plot_stats
 
 dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id, 

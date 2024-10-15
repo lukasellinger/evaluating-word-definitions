@@ -1,8 +1,9 @@
-from datasets import load_dataset, concatenate_datasets
+from datasets import concatenate_datasets, load_dataset
 from tqdm import tqdm
 
 from database.db_retriever import FeverDocDB
-from general_utils.spacy_utils import is_single_word, split_into_sentences, create_english_fact
+from general_utils.spacy_utils import (create_english_fact, is_single_word,
+                                       split_into_sentences)
 from general_utils.utils import find_substring_in_list
 
 

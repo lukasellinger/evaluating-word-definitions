@@ -1,8 +1,9 @@
 """Module for WordReplacer used to build datasets."""
 import random
 from typing import List, Tuple
-from odenet import antonyms_word
+
 from nltk.corpus import wordnet as wn
+from odenet import antonyms_word
 
 from general_utils.spacy_utils import is_single_word
 from general_utils.translation import Translator

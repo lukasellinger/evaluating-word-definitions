@@ -3,7 +3,7 @@ import os
 from typing import List
 
 from openai import OpenAI
-from openai.types import FileObject, Batch
+from openai.types import Batch, FileObject
 from openai.types.chat import ChatCompletion
 
 from config import OPEN_AI_TOKEN

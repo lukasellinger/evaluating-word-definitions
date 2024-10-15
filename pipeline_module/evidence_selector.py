@@ -1,11 +1,11 @@
 """Module for Evidence Selector."""
 from abc import ABC, abstractmethod
-from typing import List, Dict, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
-from transformers import AutoTokenizer, AutoModel
 from torch.nn.functional import cosine_similarity
+from transformers import AutoModel, AutoTokenizer
 
 from general_utils.utils import rank_docs
 from models.evidence_selection_model import EvidenceSelectionModel

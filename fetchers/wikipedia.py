@@ -1,6 +1,6 @@
 """Module for making api call to wikipedia."""
 import re
-from typing import List, Tuple, Dict
+from typing import Dict, List, Tuple
 
 import pandas as pd
 import requests
@@ -9,9 +9,10 @@ from requests import Response
 from transformers import RobertaTokenizer
 
 from fetchers.wiktionary_parser import WiktionaryParser
-from general_utils.spacy_utils import split_into_sentences, split_into_passage_sentences
-from general_utils.utils import (generate_case_combinations, split_into_passages,
-                                 remove_duplicate_values)
+from general_utils.spacy_utils import (split_into_passage_sentences,
+                                       split_into_sentences)
+from general_utils.utils import (generate_case_combinations,
+                                 remove_duplicate_values, split_into_passages)
 
 
 class Wikipedia:

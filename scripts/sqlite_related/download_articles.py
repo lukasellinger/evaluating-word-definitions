@@ -5,6 +5,7 @@ from config import HF_WRITE_TOKEN
 from database.db_retriever import FeverDocDB
 from fetchers.wikipedia import Wikipedia
 
+
 def main(table, dataset_name, word_lang):
     CREATE_DATASET = f"""
     CREATE TABLE IF NOT EXISTS {table} (

@@ -1,5 +1,6 @@
-import numpy as np
 import re
+
+import numpy as np
 
 invalid_ppl_mentions = [
     "I could not find any information",

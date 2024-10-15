@@ -1,9 +1,10 @@
 """Module for Statement Verifiers."""
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import Dict, List
 
 import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+from transformers import (AutoModelForSequenceClassification, AutoTokenizer,
+                          pipeline)
 
 from dataset.def_dataset import Fact
 from models.claim_verification_model import ClaimVerificationModel

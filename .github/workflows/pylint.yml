@@ -24,11 +24,8 @@ jobs:
         if [ ! -f config.py ]; then
           cp config.py.template config.py
         fi
-    - name: Sorting imports with isort
-      run: |
-        isort $(git ls-files '*.py')
     - name: Analysing the code with pylint
       run: |
-        pylint $(git ls-files '*.py') --ignore=factscore
+        pylint $(git ls-files '*.py') --ignore-paths='^factscore/.*$'
   
 

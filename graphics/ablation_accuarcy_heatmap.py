@@ -1,7 +1,7 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
 
 # Example accuracy data for different combinations of documents and sentences
 data = {

@@ -4,7 +4,7 @@ from datasets import Dataset
 from sklearn.metrics import accuracy_score, f1_score
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from config import DB_URL
 from dataset.def_dataset import DefinitionDataset

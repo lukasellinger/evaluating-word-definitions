@@ -3,8 +3,8 @@ Input: Claim to verify and document which should be used for verifying.
 Output: Sentence Embeddings.
 """
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 
 
 class EvidenceSelectionModel(nn.Module):

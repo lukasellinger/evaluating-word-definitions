@@ -2,8 +2,7 @@
 from typing import List
 
 from wikitextprocessor import Wtp
-
-from wiktextract import WiktionaryConfig, WiktextractContext, parse_page
+from wiktextract import WiktextractContext, WiktionaryConfig, parse_page
 
 
 class WiktionaryParser:

@@ -8,13 +8,17 @@ from tqdm import tqdm
 from dataset.def_dataset import Fact, process_lines, split_text
 from general_utils.fever_scorer import fever_score
 from general_utils.reader import JSONLineReader
-from general_utils.utils import process_sentence_wiki, build_fever_instance
+from general_utils.utils import build_fever_instance, process_sentence_wiki
 from pipeline_module.claim_splitter import ClaimSplitter
-from pipeline_module.evidence_fetcher import EvidenceFetcher, WikipediaEvidenceFetcher
-from pipeline_module.evidence_selector import EvidenceSelector, ModelEvidenceSelector
-from pipeline_module.sentence_connector import SentenceConnector, ColonSentenceConnector
-from pipeline_module.statement_verifier import StatementVerifier, ModelStatementVerifier
-from pipeline_module.translator import Translator, OpusMTTranslator
+from pipeline_module.evidence_fetcher import (EvidenceFetcher,
+                                              WikipediaEvidenceFetcher)
+from pipeline_module.evidence_selector import (EvidenceSelector,
+                                               ModelEvidenceSelector)
+from pipeline_module.sentence_connector import (ColonSentenceConnector,
+                                                SentenceConnector)
+from pipeline_module.statement_verifier import (ModelStatementVerifier,
+                                                StatementVerifier)
+from pipeline_module.translator import OpusMTTranslator, Translator
 
 
 class Pipeline:

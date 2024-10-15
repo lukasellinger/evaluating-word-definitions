@@ -1,8 +1,9 @@
 """Script for the creation of the SHROOM dataset."""
 import re
 
-from config import HF_WRITE_TOKEN, PROJECT_DIR
 from datasets import DatasetDict, load_dataset
+
+from config import HF_WRITE_TOKEN, PROJECT_DIR
 
 data_files = {
     'modelagnostic': str(PROJECT_DIR / "dataset/SHROOM_test-labeled/test.model-agnostic.json"),

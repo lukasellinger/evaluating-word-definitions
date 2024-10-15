@@ -5,7 +5,7 @@ from typing import List
 
 import requests
 import torch
-from transformers import T5Tokenizer, T5ForConditionalGeneration
+from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 from config import HF_READ_TOKENS, PROJECT_DIR
 from fetchers.openai import OpenAiFetcher

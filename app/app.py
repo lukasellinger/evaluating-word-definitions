@@ -1,10 +1,11 @@
 from datasets import load_dataset
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, jsonify, render_template, request
 
 from pipeline_module.evidence_fetcher import WikipediaEvidenceFetcher
 from pipeline_module.evidence_selector import ModelEvidenceSelector
 from pipeline_module.pipeline import Pipeline
-from pipeline_module.sentence_connector import ColonSentenceConnector, PhiSentenceConnector
+from pipeline_module.sentence_connector import (ColonSentenceConnector,
+                                                PhiSentenceConnector)
 from pipeline_module.statement_verifier import ModelStatementVerifier
 from pipeline_module.translator import OpusMTTranslator
 

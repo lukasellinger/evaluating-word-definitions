@@ -1,7 +1,7 @@
 """Script for the creation of the Wiktionary Mini/Large dataset."""
-from datasets import load_dataset, concatenate_datasets, Dataset, DatasetDict
+from datasets import Dataset, DatasetDict, concatenate_datasets, load_dataset
 
-from config import PROJECT_DIR, HF_WRITE_TOKEN
+from config import HF_WRITE_TOKEN, PROJECT_DIR
 from general_utils.spacy_utils import is_single_word
 
 data_files = {

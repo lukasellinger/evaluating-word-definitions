@@ -5,7 +5,8 @@ from tqdm import tqdm
 from config import PROJECT_DIR
 from database.db_retriever import FeverDocDB
 from general_utils.reader import JSONLineReader
-from general_utils.spacy_utils import get_words_before_root, get_words_after_root
+from general_utils.spacy_utils import (get_words_after_root,
+                                       get_words_before_root)
 from general_utils.utils import title_to_db_page
 
 CREATE_DEF_DATASET = """

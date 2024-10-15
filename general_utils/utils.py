@@ -3,7 +3,7 @@ import itertools
 import re
 import string
 import subprocess
-from typing import List, Dict
+from typing import Dict, List
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -12,7 +12,7 @@ from sklearn.metrics import accuracy_score, f1_score
 from transformers import RobertaTokenizer
 
 from config import PROJECT_DIR
-from general_utils.reader import LineReader, JSONReader
+from general_utils.reader import JSONReader, LineReader
 
 
 def convert_to_unicode(text):

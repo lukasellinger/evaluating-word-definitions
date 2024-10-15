@@ -1,11 +1,10 @@
 import json
-import time
 import os
-
-import sqlite3
-import numpy as np
 import pickle as pkl
+import sqlite3
+import time
 
+import numpy as np
 from rank_bm25 import BM25Okapi
 
 from fetchers.wikipedia import Wikipedia

@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import List
 
 import torch
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 
 class Translator(ABC):

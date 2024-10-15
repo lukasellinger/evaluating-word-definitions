@@ -1,11 +1,13 @@
-import numpy as np
-import torch
 import time
 from collections import defaultdict
+
+import numpy as np
+import torch
 from transformers import AutoModelForMaskedLM, AutoTokenizer
 
 from factscore.lm import LM
 from factscore.retrieval import Retrieval
+
 
 def softmax(x):
     return(np.exp(x - np.max(x)) / np.exp(x - np.max(x)).sum())

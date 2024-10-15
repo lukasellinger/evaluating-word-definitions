@@ -4,20 +4,21 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-import os
-import math
-import time
 import json
+import math
+import os
+import time
+from collections import defaultdict
+
 import numpy as np
 import torch
 from tqdm import tqdm
-from collections import defaultdict
+from transformers import (AutoModelForCausalLM, LlamaTokenizer,
+                          PreTrainedTokenizerFast)
 
-from transformers import AutoModelForCausalLM, PreTrainedTokenizerFast
-from transformers import LlamaTokenizer
-
-from factscore.utils import convert_model_to_int8_on_gpu
 from factscore.lm import LM
+from factscore.utils import convert_model_to_int8_on_gpu
+
 
 class CLM(LM):
     def __init__(self, model_name, model_dir, cache_file=None):

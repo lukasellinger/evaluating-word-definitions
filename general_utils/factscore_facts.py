@@ -1,11 +1,12 @@
 """Module for FactScore Facts"""
 import json
-import numpy as np
+import os
 import re
 import string
+
+import numpy as np
 import spacy
 from rank_bm25 import BM25Okapi
-import os
 
 
 class FactScoreFactGenerator(object):

@@ -1,8 +1,9 @@
-from datasets import load_dataset, concatenate_datasets
+from datasets import concatenate_datasets, load_dataset
 from tqdm import tqdm
 
 from database.db_retriever import FeverDocDB
-from general_utils.spacy_utils import is_german_def_question, create_german_fact
+from general_utils.spacy_utils import (create_german_fact,
+                                       is_german_def_question)
 
 
 def main(table, dataset_name):

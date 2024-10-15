@@ -1,16 +1,17 @@
-import json
-import numpy as np
-import re
 import functools
-import string
-import spacy
-import sys
-import nltk
-import openai
-from rank_bm25 import BM25Okapi
+import json
 import os
+import re
+import string
+import sys
 import time
+
+import nltk
+import numpy as np
+import openai
+import spacy
 from nltk.tokenize import sent_tokenize
+from rank_bm25 import BM25Okapi
 
 from config import OPEN_AI_TOKEN, PROJECT_DIR
 from factscore.openai_lm import OpenAIModel

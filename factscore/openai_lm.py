@@ -1,13 +1,15 @@
+import logging
+import os
+import sys
+import time
+
+import numpy as np
+import openai
 from openai import OpenAI
 
 from config import OPEN_AI_TOKEN
 from factscore.lm import LM
-import openai
-import sys
-import time
-import os
-import numpy as np
-import logging
+
 
 class OpenAIModel(LM):
 

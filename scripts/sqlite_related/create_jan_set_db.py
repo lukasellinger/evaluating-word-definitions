@@ -7,6 +7,7 @@ from general_utils.reader import JSONReader
 from general_utils.spacy_utils import is_single_word
 from general_utils.utils import remove_non_alphabetic_start_end
 
+
 def main(table, json_table):
     CREATE_GER_DATASET = f"""
     CREATE TABLE IF NOT EXISTS {table} (
