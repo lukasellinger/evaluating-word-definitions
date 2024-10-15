@@ -30,9 +30,12 @@ WHERE uq.set_type = '{set_type}'
 GROUP BY uq.id, docs.document_id;
 """
 
-train_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='train'), cache_dir=None, con=DB_URL)
-dev_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='dev'), cache_dir=None, con=DB_URL)
-test_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='test'), cache_dir=None, con=DB_URL)
+train_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='train'),
+                                     cache_dir=None, con=DB_URL)
+dev_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='dev'),
+                                   cache_dir=None, con=DB_URL)
+test_dataset_raw = Dataset.from_sql(dataset_query.format(set_type='test'),
+                                    cache_dir=None, con=DB_URL)
 
 combined_datasets = DatasetDict({
       "train": train_dataset_raw,
@@ -40,7 +43,8 @@ combined_datasets = DatasetDict({
       "test": test_dataset_raw
 })
 
-combined_datasets.push_to_hub("lukasellinger/filtered_fever_claim_verification", private=True, token=HF_WRITE_TOKEN)
+combined_datasets.push_to_hub("lukasellinger/filtered_fever_claim_verification",
+                              private=True, token=HF_WRITE_TOKEN)
 
 # dataset_query = """
 # WITH unique_claims AS (

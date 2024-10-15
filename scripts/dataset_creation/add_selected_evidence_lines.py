@@ -3,8 +3,6 @@ import random
 from datasets import load_dataset
 from tqdm import tqdm
 
-from dataset.def_dataset import split_text, process_lines
-from general_utils.utils import process_sentence_wiki
 from pipeline_module.evidence_selector import ModelEvidenceSelector
 from pipeline_module.pipeline import FeverPipeline
 

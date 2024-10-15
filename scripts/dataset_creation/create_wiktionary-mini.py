@@ -1,5 +1,4 @@
 from datasets import load_dataset, concatenate_datasets, Dataset, DatasetDict
-from langdetect import detect
 
 from config import PROJECT_DIR, HF_WRITE_TOKEN
 from general_utils.spacy_utils import is_single_word
@@ -37,5 +36,3 @@ data_dict = DatasetDict()
 data_dict['test'] = sample_dataset
 
 data_dict.push_to_hub('lukasellinger/german_wiktionary-claim_verification-mini', private=True, token=HF_WRITE_TOKEN)
-
-print('hi')

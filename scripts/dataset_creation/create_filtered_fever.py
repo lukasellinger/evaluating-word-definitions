@@ -1,4 +1,4 @@
-"""Script for creating the dataset."""
+"""Script for creating the filtered fever dataset."""
 from typing import Tuple
 
 from datasets import Dataset
@@ -9,7 +9,7 @@ from general_utils.spacy_utils import get_ent_type, recognize_definition
 
 
 def check_stats(dataset: Dataset) -> dict:
-    """"Iterate through the dataset and returns stats about it."""
+    """Iterate through the dataset and returns stats about it."""
     stats = {}
     for entry in tqdm(dataset):
         claim = str(entry.get('claim'))
@@ -90,9 +90,12 @@ def create_def_dataset(file_in: str, file_out: str, person_prop=0.1, long=True) 
     return len(def_dataset), len(dataset_raw)
 
 
-print(create_def_dataset(file_in='../dataset/fever/train.jsonl', file_out='../dataset/def_train.jsonl',
+print(create_def_dataset(file_in='../dataset/fever/train.jsonl',
+                         file_out='../dataset/def_train.jsonl',
                          person_prop=0.1))
-print(create_def_dataset(file_in='../dataset/fever/dev.jsonl', file_out='../dataset/def_dev.jsonl',
+print(create_def_dataset(file_in='../dataset/fever/dev.jsonl',
+                         file_out='../dataset/def_dev.jsonl',
                          person_prop=0.1))
-print(create_def_dataset(file_in='../dataset/fever/test.jsonl', file_out='../dataset/def_test.jsonl',
+print(create_def_dataset(file_in='../dataset/fever/test.jsonl',
+                         file_out='../dataset/def_test.jsonl',
                          person_prop=0.1))

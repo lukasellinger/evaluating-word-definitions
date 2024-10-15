@@ -3,7 +3,7 @@ from collections import defaultdict
 from tqdm import tqdm
 
 from database.db_retriever import FeverDocDB
-from general_utils.utils import sentence_simplification, process_dissim_sentence
+from general_utils.utils import sentence_simplification
 
 
 def main(table, fact_table, claim_col):
@@ -41,7 +41,6 @@ def main(table, fact_table, claim_col):
             splits = claim.get('splits')
             stats[len(splits)] += len(claim_ids)
             for split in splits:
-                split = process_dissim_sentence(split)
                 for claim_id in claim_ids:
                     db.write(INSERT_FACT, (claim_id, split))
     return stats

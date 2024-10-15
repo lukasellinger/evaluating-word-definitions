@@ -14,11 +14,11 @@ from losses.supcon import SupConLoss
 from models.evidence_selection_model import EvidenceSelectionModel
 import torch.nn.functional as F
 
-from general_utils.utils import calc_bin_stats, plot_graph
 from training_loop_tests.utils import plot_stats
 
-dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id, docs.text, 
-                                         docs.lines, group_concat(dd.evidence_sentence_id) as evidence_lines
+dataset = Dataset.from_sql("""select dd.id, dd.claim, dd.label, docs.document_id, 
+                                         docs.text, docs.lines, 
+                                         group_concat(dd.evidence_sentence_id) as evidence_lines
                                   from def_dataset dd
                                     join documents docs on docs.document_id = dd.evidence_wiki_url
                                   where set_type='train'
@@ -31,17 +31,24 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 #model = AutoModel.from_pretrained('sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
 
 model_name = 'Snowflake/snowflake-arctic-embed-m-long'
-model = AutoModel.from_pretrained(model_name, trust_remote_code=True, add_pooling_layer=False, safe_serialization=True)
+model = AutoModel.from_pretrained(model_name,
+                                  trust_remote_code=True,
+                                  add_pooling_layer=False,
+                                  safe_serialization=True)
 
 selection_model = EvidenceSelectionModel(model).to(device)
 
 # Add all lora compatible modules
 target_modules = []
 for name, module in model.named_modules():
-    if isinstance(module, (torch.nn.Linear, torch.nn.Embedding, torch.nn.Conv2d, transformers.pytorch_utils.Conv1D)):
+    if isinstance(module, (torch.nn.Linear, torch.nn.Embedding,
+                           torch.nn.Conv2d, transformers.pytorch_utils.Conv1D)):
         target_modules.append(name)
 
-peft_config = LoraConfig(task_type=TaskType.FEATURE_EXTRACTION, inference_mode=False, r=40, lora_alpha=32, lora_dropout=0.1, target_modules=target_modules, use_rslora=True)
+peft_config = LoraConfig(task_type=TaskType.FEATURE_EXTRACTION,
+                         inference_mode=False, r=40,
+                         lora_alpha=32, lora_dropout=0.1,
+                         target_modules=target_modules, use_rslora=True)
 model = get_peft_model(model, peft_config) # 40
 model.print_trainable_parameters()
 

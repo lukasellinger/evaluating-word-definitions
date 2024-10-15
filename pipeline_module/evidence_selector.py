@@ -70,7 +70,7 @@ class ModelEvidenceSelector(EvidenceSelector):
     EvidenceSelector implementation that uses a machine learning model for evidence selection.
     """
 
-    MODEL_NAME = 'lukasellinger/evidence_selection_model-v4'
+    MODEL_NAME = 'lukasellinger/evidence-selection-model'
 
     def __init__(self, model_name: str = '', min_similarity: float = 0, evidence_selection: str = 'top'):
         """
