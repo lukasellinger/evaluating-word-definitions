@@ -214,22 +214,30 @@ class ModelEvidenceSelector(EvidenceSelector):
     def _compute_sentence_similarities(self,
                                        page: str, line_numbers: List[str], sentences: List[str],
                                        statement_embeddings: torch.Tensor) -> List[Dict]:
-        encoded_sequence, sentence_mask = self._encode_sentences(sentences)
-        sentences_model_input = {
-            'input_ids': torch.tensor(encoded_sequence).unsqueeze(0).to(self.device),
-            'attention_mask': torch.ones(len(encoded_sequence)).unsqueeze(0).to(self.device),
-            'sentence_mask': torch.tensor(sentence_mask).unsqueeze(0).to(self.device)
-        }
-        with torch.no_grad():
-            sentence_embeddings = self.model(**sentences_model_input).squeeze(0)
-            claim_similarities = cosine_similarity(statement_embeddings,
-                                                   sentence_embeddings, dim=2).tolist()[0]
-        return [{'title': page,
-                 'line_idx': line_num,
-                 'text': sentence,
-                 'sim': sim,
-                 'embedding': embedding} for line_num, sentence, sim, embedding in
-                zip(line_numbers, sentences, claim_similarities, sentence_embeddings)]
+        if sentences:
+            encoded_sequence, sentence_mask = self._encode_sentences(sentences)
+            sentences_model_input = {
+                'input_ids': torch.tensor(encoded_sequence).unsqueeze(0).to(self.device),
+                'attention_mask': torch.ones(len(encoded_sequence)).unsqueeze(0).to(self.device),
+                'sentence_mask': torch.tensor(sentence_mask).unsqueeze(0).to(self.device)
+            }
+            with torch.no_grad():
+                sentence_embeddings = self.model(**sentences_model_input).squeeze(0)
+                claim_similarities = cosine_similarity(statement_embeddings,
+                                                       sentence_embeddings, dim=2).tolist()[0]
+            return [{'title': page,
+                     'line_idx': line_num,
+                     'text': sentence,
+                     'sim': sim,
+                     'embedding': embedding} for line_num, sentence, sim, embedding in
+                    zip(line_numbers, sentences, claim_similarities, sentence_embeddings)]
+        else:
+            # sim -1 if there are no lines. Discards the evidence then because of topic modelling.
+            return [{'title': page,
+                     'line_idx': 0,
+                     'text': '',
+                     'sim': -1,
+                     'embedding': None}]
 
     def _encode_sentences(self, sentences: List[str]) -> Tuple[List[int], List[List[int]]]:
         encoded_sequence = []

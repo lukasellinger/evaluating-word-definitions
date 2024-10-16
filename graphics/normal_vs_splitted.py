@@ -8,14 +8,14 @@ data = {
     'Metric': ['Precision (Positive)', 'Recall (Positive)',
                'Precision (Negative)', 'Recall (Negative)',
                'Accuracy'],
-    'Pipeline': [0.9008, 0.7002, 0.9474, 0.4286, 0.7024],
-    'GPT-3.5 Turbo': [0.6308, 0.9762, 0.9474, 0.4286, 0.7024],
-    'GPT-4o mini':   [0.7547, 0.9524, 0.9355, 0.6905, 0.8214],
-    'GPT-4o':        [0.9080, 0.9405, 0.9383, 0.9048, 0.9226],
-    'Pipeline Splitted': [0.9500, 0.6500, 0.9474, 0.4286, 0.7024],
-    'GPT-3.5 Turbo Splitted': [0.8539, 0.9048, 0.8947, 0.8452, 0.8750],
-    'GPT-4o mini Splitted':   [0.9189, 0.8095, 0.8298, 0.9286, 0.8608],
-    'GPT-4o Splitted':        [0.9315, 0.8095, 0.8316, 0.9405, 0.8750],
+    'Pipeline': [87.88, 82.86, 83.56, 88.41, 85.61],
+    'GPT-3.5 Turbo': [85.71, 94.29, 93.55, 84.06, 89.21],
+    'GPT-4o mini':   [90.91, 85.71, 86.30, 91.30, 88.49],
+    'GPT-4o':        [100, 78.57, 82.14, 100, 89.21],
+    'Pipeline Splitted': [95.74, 64.29, 72.83, 97.10, 80.58],
+    'GPT-3.5 Turbo Splitted': [93.10, 77.14, 80.25, 94.20, 85.61],
+    'GPT-4o mini Splitted':   [95.65, 62.86, 72.04, 97.10, 79.86],
+    'GPT-4o Splitted':        [97.22, 50.00, 66.02, 98.55, 74.10],
 }
 
 # Create a DataFrame
@@ -42,7 +42,7 @@ sns.set(font_scale=FONT_SCALE)
 
 # Plot the original models heatmap
 plt.figure(figsize=(16, 10))  # Increased figure size for better readability
-sns.heatmap(df_original, annot=True, cmap='YlGnBu', fmt='.4f', linewidths=.5,
+sns.heatmap(df_original, annot=True, cmap='YlGnBu', fmt='.2f', linewidths=.5,
             cbar=False,  # Remove the color bar
             annot_kws={"size": 36},  # Increase annotation font size
             xticklabels=df_original.columns, yticklabels=df_original.index,
@@ -64,7 +64,7 @@ plt.show()
 
 # Plot the 'Splitted' models heatmap without y-axis labels and renamed columns
 plt.figure(figsize=(16, 10))  # Increased figure size for better readability
-sns.heatmap(df_splitted, annot=True, cmap='YlGnBu', fmt='.4f', linewidths=.5,
+sns.heatmap(df_splitted, annot=True, cmap='YlGnBu', fmt='.2f', linewidths=.5,
             cbar_kws={"shrink": .8}, annot_kws={"size": 36},  # Increase annotation font size
             xticklabels=df_splitted.columns, yticklabels=False,  # Remove y-axis labels
             vmin=vmin, vmax=vmax)

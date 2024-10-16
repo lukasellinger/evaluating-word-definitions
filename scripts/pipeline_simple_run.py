@@ -13,4 +13,4 @@ offline_evid_fetcher = WikipediaEvidenceFetcher(offline=False)
 pipeline = Pipeline(OpusMTTranslator(), ColonSentenceConnector(), None, offline_evid_fetcher,
                     evid_selector,
                     stm_verifier, 'en')
-print(pipeline.verify('Light bulb', 'an artificial light source'))
+print(pipeline.verify(word='tablados', claim='Tablados signifies popular scenes', search_word='tablados'))
