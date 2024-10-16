@@ -25,7 +25,7 @@ INSERT INTO documents (document_id, text, lines) VALUES (?, ?, ?)
 with FeverDocDB() as db:
     db.write(CREATE_DOCUMENTS)
 
-wiki_pages_dir = PROJECT_DIR.joinpath('data/wiki-pages')
+wiki_pages_dir = PROJECT_DIR.joinpath('wiki-pages')
 wiki_pages = os.listdir(wiki_pages_dir)
 reader = JSONLineReader()
 
