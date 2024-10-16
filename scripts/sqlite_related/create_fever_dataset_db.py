@@ -40,9 +40,9 @@ WHERE document_id = ?
 with FeverDocDB() as db:
     db.write(CREATE_DEF_DATASET)
 
-train_file_path = PROJECT_DIR.joinpath("dataset/def_train.jsonl")
-dev_file_path = PROJECT_DIR.joinpath("dataset/def_dev.jsonl")
-test_file_path = PROJECT_DIR.joinpath("dataset/def_test.jsonl")
+train_file_path = PROJECT_DIR.joinpath("data/processed/fever/def_train.jsonl")
+dev_file_path = PROJECT_DIR.joinpath("data/processed/fever/def_dev.jsonl")
+test_file_path = PROJECT_DIR.joinpath("data/processed/fever/def_test.jsonl")
 reader = JSONLineReader()
 
 for set_type, path in zip(['train', 'dev', 'test'],

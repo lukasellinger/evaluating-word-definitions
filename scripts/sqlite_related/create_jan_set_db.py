@@ -60,5 +60,5 @@ def main(table, json_table):
 
 if __name__ == "__main__":
     TABLE = 'german_dataset'
-    dataset_json_table = PROJECT_DIR.joinpath('dataset/jan_eval_results_table.json')
+    dataset_json_table = PROJECT_DIR.joinpath('data/raw/jan/jan_raw_german-claim_verification.json')
     main(TABLE, dataset_json_table)

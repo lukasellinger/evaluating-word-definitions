@@ -6,8 +6,8 @@ from datasets import DatasetDict, load_dataset
 from config import HF_WRITE_TOKEN, PROJECT_DIR
 
 data_files = {
-    'modelagnostic': str(PROJECT_DIR / "dataset/SHROOM_test-labeled/test.model-agnostic.json"),
-    'modelaware': str(PROJECT_DIR / "dataset/SHROOM_test-labeled/test.model-aware.json")
+    'modelagnostic': str(PROJECT_DIR / "data/raw/SHROOM_test-labeled/test.model-agnostic.json"),
+    'modelaware': str(PROJECT_DIR / "data/raw/SHROOM_test-labeled/test.model-aware.json")
 }
 
 dataset = load_dataset('json', data_files=data_files)

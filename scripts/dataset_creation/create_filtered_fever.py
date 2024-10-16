@@ -90,12 +90,12 @@ def create_def_dataset(file_in: str, file_out: str, person_prop=0.1, long=True) 
     return len(def_dataset), len(dataset_raw)
 
 
-print(create_def_dataset(file_in='../dataset/fever/train.jsonl',
-                         file_out='../dataset/def_train.jsonl',
+print(create_def_dataset(file_in='../data/raw/fever/train.jsonl',
+                         file_out='../data/processed/fever/def_train.jsonl',
                          person_prop=0.1))
-print(create_def_dataset(file_in='../dataset/fever/dev.jsonl',
-                         file_out='../dataset/def_dev.jsonl',
+print(create_def_dataset(file_in='../data/raw/fever/dev.jsonl',
+                         file_out='../data/processed/fever/def_dev.jsonl',
                          person_prop=0.1))
-print(create_def_dataset(file_in='../dataset/fever/test.jsonl',
-                         file_out='../dataset/def_test.jsonl',
+print(create_def_dataset(file_in='../data/raw/fever/test.jsonl',
+                         file_out='../data/processed/fever/def_test.jsonl',
                          person_prop=0.1))

@@ -5,9 +5,9 @@ from config import HF_WRITE_TOKEN, PROJECT_DIR
 from general_utils.spacy_utils import is_single_word
 
 data_files = {
-    #'train': str(PROJECT_DIR / 'dataset/jan/0_10_words/train.parquet'),
-    #'val': str(PROJECT_DIR / 'dataset/jan/0_10_words/val.parquet'),
-    'test': str(PROJECT_DIR / 'dataset/jan/0_10_words/test.parquet')
+    #'train': str(PROJECT_DIR / 'data/raw/jan/0_10_words/train.parquet'),
+    #'val': str(PROJECT_DIR / 'data/raw/jan/0_10_words/val.parquet'),
+    'test': str(PROJECT_DIR / 'data/raw/jan/0_10_words/test.parquet')
 }
 
 # Load the dataset
