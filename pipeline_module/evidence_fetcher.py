@@ -94,8 +94,10 @@ class WikipediaEvidenceFetcher(EvidenceFetcher):
                               word_lang: str = 'de') -> Tuple[List[str], List[List[dict]]]:
         # Validate batch contents based on mode (offline or online)
         required_keys = ['search_word'] if self.offline else ['word', 'translated_word']
-        for key in required_keys:
-            assert all(key in entry for entry in batch), f'Key {key} missing in batch entries'
+        for entry in batch:
+            for key in required_keys:
+                assert key in entry and entry[
+                    key], f'Key "{key}" is missing or has an invalid value in batch entry: {entry}'
 
         # Fetch evidences for each entry in the batch
         evidence_batch = [
