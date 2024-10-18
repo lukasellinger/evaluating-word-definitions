@@ -115,8 +115,34 @@ class Pipeline:
             entry['search_word'] = search_word
         return self.verify_batch([entry], only_intro=only_intro)[0]
 
+    @staticmethod
+    def filter_batch_for_wikipedia(batch: List[Dict],
+                                   evids_batch: List[List[Dict]],
+                                   outputs) -> Tuple[List[Dict], List[List[Dict]], List[Dict]]:
+        filtered_batch, filtered_evids = [], []
+        for evid in evids_batch:
+            evid[:] = [d for d in evid if d.get('title', '').endswith('(wikipedia)')]
+
+        for entry, evid in zip(batch, evids_batch):
+            if len(evid) > 0:
+                filtered_batch.append(entry)
+                filtered_evids.append(evid)
+            else:
+                outputs.append(
+                    {'id': entry.get('id'),
+                     'word': entry.get('word'),
+                     'claim': entry.get('claim'),
+                     'connected_claim': entry.get('connected_claim'),
+                     'label': entry.get('label'),
+                     'predicted': -1,
+                     'in_wiki': 'No'
+                     })
+
+        return filtered_batch, filtered_evids, outputs
+
     def verify_test_batch(self, batch: List[Dict], only_intro: bool = True,
-                          max_evidence_count: int = 3, top_k: int = 3) -> List[Dict]:
+                          max_evidence_count: int = 3, top_k: int = 3,
+                          only_wikipedia: bool = False) -> List[Dict]:
         """
         Verify a test batch of claims by fetching, selecting, and verifying evidence.
 
@@ -125,6 +151,7 @@ class Pipeline:
         be considered.
         :param max_evidence_count: Maximum number of evidences to consider for each claim.
         :param top_k: Number of top sentences to select for each claim.
+        :param only_wikipedia: Whether evidence should only be from wikipedia. Else also wiktionary.
         :return: List of verified claims with evidence.
         """
         filtered_batch = []
@@ -149,6 +176,11 @@ class Pipeline:
                               filtered_batch]
 
         _, evids = self.evid_fetcher(evid_fetcher_input, word_lang=self.lang, only_intro=only_intro)
+
+        if only_wikipedia:
+            filtered_batch, evids, outputs = self.filter_batch_for_wikipedia(filtered_batch,
+                                                                             evids,
+                                                                             outputs)
 
         if not filtered_batch:
             return outputs
@@ -195,7 +227,8 @@ class Pipeline:
                             output_file_name: str = '',
                             only_intro: bool = True,
                             max_evidence_count: int = 3,
-                            top_k: int = 3) -> Tuple[List[Dict], str, int]:
+                            top_k: int = 3,
+                            only_wikipedia: bool = False) -> Tuple[List[Dict], str, int]:
         """
         Verify a test dataset in batches.
 
@@ -206,6 +239,7 @@ class Pipeline:
         be considered.
         :param max_evidence_count: Maximum number of evidences to consider for each claim.
         :param top_k: Number of top sentences to select for each claim.
+        :param only_wikipedia: Whether evidence should only be from wikipedia. Else also wiktionary.
         :return: Tuple containing verification results, classification report, and count of claims
         not found in wiki.
         """
@@ -216,7 +250,9 @@ class Pipeline:
         for i in tqdm(range(0, len(dataset), batch_size)):
             batch = dataset[i:i + batch_size]
             output = self.verify_test_batch(batch, only_intro=only_intro,
-                                            max_evidence_count=max_evidence_count, top_k=top_k)
+                                            max_evidence_count=max_evidence_count,
+                                            top_k=top_k,
+                                            only_wikipedia=only_wikipedia)
 
             for entry in output:
                 if entry['predicted'] != -1:
@@ -397,16 +433,16 @@ if __name__ == "__main__":
                         ModelStatementVerifier(
                             model_name='MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7'),
                         'de')
-    # result = pipeline.verify_test_batch([{'word': 'ERTU',
-    #                                      'document_search_word': 'glacier',
-    #                                      'in_wiki': 'Yes',
-    #                                      'connected_claim': 'A glacier is an ice mass resulting '
-    #                                                         'from snow with a clearly defined '
-    #                                                         'catchment area, which moves '
-    #                                                         'independently due to the slope, '
-    #                                                         'structure of the ice, temperature, '
-    #                                                         'and the shear stress resulting from '
-    #                                                         'the mass of the ice and the other '
-    #                                                         'factors.'},
-    #                                     ])
-    pipeline.verify_batch([{'word': 'Apfel', 'text': 'Huhn'}])
+    result = pipeline.verify_test_batch([{'word': 'ERTU',
+                                          'document_search_word': 'glacier',
+                                          'in_wiki': 'Yes',
+                                          'connected_claim': 'A glacier is an ice mass resulting '
+                                                             'from snow with a clearly defined '
+                                                         'catchment area, which moves '
+                                                            'independently due to the slope, '
+                                                             'structure of the ice, temperature, '
+                                                             'and the shear stress resulting from '
+                                                             'the mass of the ice and the other '
+                                                             'factors.'},
+                                         ], only_wikipedia=True)
+    #pipeline.verify_batch([{'word': 'Apfel', 'text': 'Huhn'}])
