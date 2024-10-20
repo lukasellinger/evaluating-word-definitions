@@ -73,7 +73,7 @@ class ModelEvidenceSelector(EvidenceSelector):
     MODEL_NAME = 'lukasellinger/evidence-selection-model'
 
     def __init__(self,
-                 model_name: str = '', min_similarity: float = 0, evidence_selection: str = 'top'):
+                 model_name: str = '', min_similarity: float = 0.5, evidence_selection: str = 'top'):
         """
         Initialize the ModelEvidenceSelector with the specified model.
 
