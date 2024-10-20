@@ -58,9 +58,9 @@ class ModelStatementVerifier(StatementVerifier):
     StatementVerifier implementation that uses a machine learning model for verification.
     """
 
-    MODEL_NAME = 'lukasellinger/claim_verification_model-v5'
+    MODEL_NAME = 'lukasellinger/claim-verification-model-top_last'
 
-    def __init__(self, model_name: str = '', premise_sent_order: str = 'reverse'):
+    def __init__(self, model_name: str = '', premise_sent_order: str = 'top_last'):
         self.model_name = model_name or self.MODEL_NAME
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)

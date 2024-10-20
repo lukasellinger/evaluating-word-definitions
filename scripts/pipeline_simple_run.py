@@ -10,7 +10,13 @@ evid_selector = ModelEvidenceSelector(evidence_selection='mmr')
 stm_verifier = ModelStatementVerifier(
     model_name='MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7')
 offline_evid_fetcher = WikipediaEvidenceFetcher(offline=False)
-pipeline = Pipeline(OpusMTTranslator(), ColonSentenceConnector(), None, offline_evid_fetcher,
-                    evid_selector,
-                    stm_verifier, 'en')
-print(pipeline.verify(word='tablados', claim='Tablados signifies popular scenes', search_word='tablados'))
+
+pipeline = Pipeline(translator=OpusMTTranslator(),
+                    sent_connector=ColonSentenceConnector(),
+                    claim_splitter=None,
+                    evid_fetcher=WikipediaEvidenceFetcher(offline=False),
+                    evid_selector=evid_selector,
+                    stm_verifier=stm_verifier,
+                    lang='en')
+pipeline.verify(word='unicorn',
+                claim='mythical horse with a single horn')
