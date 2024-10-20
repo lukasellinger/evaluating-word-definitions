@@ -1,8 +1,9 @@
 """General utils using spacy for processing."""
 import re
-from typing import List
+from typing import List, Tuple
 
 import spacy
+from spacy.tokens import Token
 
 from general_utils.utils import process_sentence
 
@@ -33,12 +34,18 @@ DEFINITION_KEYWORDS = [
 
 
 def get_doc(txt: str, lang: str = 'en'):
+    """
+    Returns a spacy Doc object for a given text in the specified language.
+
+    :param txt: The input text.
+    :param lang: Language of the input text ('en' for English, 'de' for German).
+    :return: A spacy Doc object.
+    """
     if lang == 'en':
         return nlp(txt)
-    elif lang == 'de':
+    if lang == 'de':
         return german_nlp(txt)
-    else:
-        raise ValueError(f'Language {lang} not supported.')
+    raise ValueError(f'Language {lang} not supported.')
 
 
 def recognize_definition(sentence: str, simple=False) -> bool:
@@ -101,7 +108,17 @@ def split_into_sentences(txt: str, lang: str = 'en') -> List[str]:
     return [sent.text.strip() for sent in doc.sents]
 
 
-def split_into_passage_sentences(text: str, sentence_limit: int = 3, lang: str = 'en'):
+def split_into_passage_sentences(text: str,
+                                 sentence_limit: int = 3,
+                                 lang: str = 'en') -> List[List[str]]:
+    """
+    Splits a text into passages, each containing a limited number of sentences.
+
+    :param text: The input text.
+    :param sentence_limit: Maximum number of sentences per passage.
+    :param lang: Language of the text ('en' for English, 'de' for German).
+    :return: A list of passages, each being a list of sentences.
+    """
     sentences = split_into_sentences(text, lang)
     passages = []
     for i in range(0, len(sentences), sentence_limit):
@@ -132,21 +149,32 @@ def get_first_compound_or_word(txt: str, lang: str = 'en') -> str:
     return " ".join(compound)
 
 
-def get_words_before_root(sentence: str, lang='en') -> str:
-    """Get all words before the root of the sentence"""
+def get_words_before_root(sentence: str, lang: str = 'en') -> str:
+    """
+    Extracts all words before the root word in a sentence.
+
+    :param sentence: The input sentence.
+    :param lang: Language of the sentence ('en' for English, 'de' for German).
+    :return: A string containing all words before the root.
+    """
     doc = get_doc(sentence, lang)
 
     tokens = []
     for token in doc:
         if token.dep_ == "ROOT":
             break
-        else:
-            tokens.append(token.norm_)
+        tokens.append(token.norm_)
     return process_sentence(' '.join(tokens)).strip()
 
 
-def get_words_after_root(sentence: str, lang='en') -> str:
-    """Get all words after the root of the sentence"""
+def get_words_after_root(sentence: str, lang: str = 'en') -> str:
+    """
+    Extracts all words after the root word in a sentence.
+
+    :param sentence: The input sentence.
+    :param lang: Language of the sentence ('en' for English, 'de' for German).
+    :return: A string containing all words after the root.
+    """
     doc = get_doc(sentence, lang)
 
     tokens = []
@@ -161,20 +189,36 @@ def get_words_after_root(sentence: str, lang='en') -> str:
     return process_sentence(' '.join(tokens)).strip()
 
 
-def tok_format(tok):
-    """Get original verbatim text of tok."""
+def tok_format(tok: Token) -> str:
+    """
+    Returns the original text of a token.
+
+    :param tok: A spacy token object.
+    :return: The original text of the token.
+    """
     return f"{tok.orth_}"
 
 
-def to_nltk_tree(node):
-    """Get the dependency parse tree."""
+def to_nltk_tree(node: Token) -> dict | str:
+    """
+    Converts a spacy dependency tree into an NLTK-style tree format.
+
+    :param node: A spacy token node.
+    :return: An NLTK-style dependency tree.
+    """
     if node.n_lefts + node.n_rights > 0:
         return {tok_format(node): [to_nltk_tree(child) for child in node.children]}
-    else:
-        return tok_format(node)
+    return tok_format(node)
 
 
-def remove_starting_article(txt: str, lang='en'):
+def remove_starting_article(txt: str, lang: str = 'en') -> str:
+    """
+    Removes the starting article (determiner) from a text.
+
+    :param txt: The input text.
+    :param lang: Language of the text ('en' for English, 'de' for German).
+    :return: The text without the starting article.
+    """
     doc = get_doc(txt, lang)
 
     first_token = doc[0]
@@ -184,7 +228,14 @@ def remove_starting_article(txt: str, lang='en'):
     return txt
 
 
-def is_single_word(txt: str, lang='en'):
+def is_single_word(txt: str, lang: str = 'en') -> bool:
+    """
+    Determines if the text is a single word or a named entity.
+
+    :param txt: The input text.
+    :param lang: Language of the text ('en' for English, 'de' for German).
+    :return: True if the text is a single word or a named entity, False otherwise.
+    """
     doc = get_doc(txt, lang)
 
     if len(doc) == 1:
@@ -197,9 +248,15 @@ def is_single_word(txt: str, lang='en'):
     return False
 
 
-def create_german_fact(question_sent, answer_sent):
-    """Create a fact sentence out of the question and answer."""
-    QUESTION_CONVERSION = {"Was ist": "{} ist {}.",
+def create_german_fact(question_sent: str, answer_sent: str) -> Tuple[str, str] | None:
+    """
+    Creates a fact sentence from a German question and answer.
+
+    :param question_sent: The input question sentence.
+    :param answer_sent: The input answer sentence.
+    :return: A tuple containing the fact sentence and the entity, or None if no fact is created.
+    """
+    question_conversion = {"Was ist": "{} ist {}.",
                            "Was bezeichnet man als": "Als {} bezeichnet man {}.",
                            "Was bezeichnet": "{} bezeichnet {}.",
                            "Was bedeutet": "{} bedeuet {}.",
@@ -207,7 +264,7 @@ def create_german_fact(question_sent, answer_sent):
                            "Was kennzeichnet": "{} kennzeichnet {}."
                            }
 
-    for key, value in QUESTION_CONVERSION.items():
+    for key, value in question_conversion.items():
         if question_sent.startswith(key):
             entity = question_sent[len(key) + 1: -1]
             entity = remove_starting_article(entity, lang='de')  # remove leading article
@@ -217,11 +274,18 @@ def create_german_fact(question_sent, answer_sent):
             fact_sent = value.format(entity, answer_sent).strip()
             fact_sent = fact_sent[0].upper() + fact_sent[1:]
             return fact_sent, entity
+    return None
 
 
-def create_english_fact(question_sent, answer_sent):
-    """Checks whether the question asks for a definition of a word and creates a fact out of it."""
-    QUESTION_CONVERSION = {
+def create_english_fact(question_sent: str, answer_sent: str) -> Tuple[str, str] | None:
+    """
+    Creates a fact sentence from an English question and answer.
+
+    :param question_sent: The input question sentence.
+    :param answer_sent: The input answer sentence.
+    :return: A tuple containing the fact sentence and the entity, or None if no fact is created.
+    """
+    question_conversion = {
         r"What is (.*)": "{} is {}.",
         r"What is referred to as (.*)": "{} is referred to as {}.",
         r"What refers to (.*)": "{} refers to {}.",
@@ -231,7 +295,7 @@ def create_english_fact(question_sent, answer_sent):
         r"What characterizes (.*)": "{} characterizes {}."
     }
 
-    for pattern, value in QUESTION_CONVERSION.items():
+    for pattern, value in question_conversion.items():
         match = re.search(pattern, question_sent)
 
         if match:
@@ -243,11 +307,17 @@ def create_english_fact(question_sent, answer_sent):
             fact_sent = value.format(entity, answer_sent).strip()
             fact_sent = fact_sent[0].upper() + fact_sent[1:]
             return fact_sent, entity
+    return None
 
 
-def is_german_def_question(question_sent):
-    """Checks whether the entry has a question which asks for a definition of a word."""
-    QUESTION_CONVERSION = {"Was ist": "{} ist {}.",
+def is_german_def_question(question_sent: str) -> bool:
+    """
+    Checks if a German question asks for a definition.
+
+    :param question_sent: The input question sentence.
+    :return: True if the question asks for a definition, False otherwise.
+    """
+    question_conversion = {"Was ist": "{} ist {}.",
                            "Was bezeichnet man als": "Als {} bezeichnet man {}.",
                            "Was bezeichnet": "{} bezeichnet {}.",
                            "Was bedeutet": "{} bedeuet {}.",
@@ -255,7 +325,7 @@ def is_german_def_question(question_sent):
                            "Was kennzeichnet": "{} kennzeichnet {}."
                            }
 
-    if question_sent.startswith(tuple(QUESTION_CONVERSION.keys())):
+    if question_sent.startswith(tuple(question_conversion.keys())):
         if question_sent.startswith('Was ist'):
             question_tokens = german_nlp(question_sent)
 

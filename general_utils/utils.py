@@ -3,7 +3,7 @@ import itertools
 import re
 import string
 import subprocess
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -14,7 +14,7 @@ from config import PROJECT_DIR
 from general_utils.reader import JSONReader, LineReader
 
 
-def convert_to_unicode(text):
+def convert_to_unicode(text: str) -> str:
     """Converts `text` to Unicode (if it's not already), assuming utf-8 input."""
     if isinstance(text, str):
         return text
@@ -35,6 +35,7 @@ def rank_docs(query: str, docs: List[str], k=5, get_indices=True) -> List[str] |
     """
 
     def preprocess(txt: str):
+        """Lower the text."""
         return txt.lower()
 
     query = preprocess(query)
@@ -96,7 +97,11 @@ def plot_graph(keys, values, x_label='', y_label='', title=''):
     plt.show()
 
 
-def build_fever_instance(label, evidence, evidence_doc, predicted_label, predicted_evidence):
+def build_fever_instance(label: str,
+                         evidence: List,
+                         evidence_doc: str,
+                         predicted_label: str,
+                         predicted_evidence: Tuple) -> Dict:
     """Build instance to conform to fever scorer."""
     evidence = [
         [
@@ -126,7 +131,8 @@ def title_to_db_page(txt: str, parentheses=True) -> str:
     return txt
 
 
-def remove_non_alphabetic_start_end(text):
+def remove_non_alphabetic_start_end(text: str) -> str:
+    """Removes non-alphabetic characters from the start and end of a string."""
     text = text.strip()
     text = re.sub(r'[^a-zA-Z]+$', '', text)
     text = re.sub(r'^[^a-zA-Z]+', '', text)
@@ -134,6 +140,7 @@ def remove_non_alphabetic_start_end(text):
 
 
 def pretty_string_list(lst: List) -> str:
+    """Converts a list of strings into a formatted string with line breaks."""
     output = ""
     for item in lst:
         output += str(item) + '\n'
@@ -141,6 +148,13 @@ def pretty_string_list(lst: List) -> str:
 
 
 def generate_case_combinations(txt: str) -> List[str]:
+    """
+    Generates all combinations of uppercase and lowercase for the first letter of each word in
+    a string.
+
+    :param txt: The input string.
+    :return: A list of all case variations for the input text.
+    """
     words = txt.split()
     combinations = []
 
@@ -155,7 +169,13 @@ def generate_case_combinations(txt: str) -> List[str]:
     return combinations
 
 
-def sentence_simplification(sentences: List[str]):
+def sentence_simplification(sentences: List[str]) -> List[Dict]:
+    """
+    Simplifies a list of sentences using the DiscourseSimplification repository.
+
+    :param sentences: A list of sentences to simplify.
+    :return: A list of dictionaries with original and simplified sentences.
+    """
     discourse_simplification = PROJECT_DIR.joinpath('../DiscourseSimplification')
     LineReader().write(discourse_simplification.joinpath('input.txt'), sentences, mode='w')
     command = ["mvn", "-f", discourse_simplification.joinpath("pom.xml"), "clean", "compile",
@@ -168,14 +188,15 @@ def sentence_simplification(sentences: List[str]):
     return outputs
 
 
-def find_substring_in_list(lst, substring):
+def find_substring_in_list(lst: List[str], substring: str) -> int:
+    """Finds the index of the first occurrence of a substring in a list of strings."""
     for index, string in enumerate(lst):
         if substring in string:
             return index
     return -1
 
 
-def process_sentence_wiki(sentence):
+def process_sentence_wiki(sentence: str) -> str:
     """Converts characters to their original representation in a sentence."""
     sentence = convert_to_unicode(sentence)
     sentence = re.sub(" -LSB-.*?-RSB-", " ", sentence)
@@ -192,7 +213,7 @@ def process_sentence_wiki(sentence):
     return sentence
 
 
-def process_sentence(sentence):
+def process_sentence(sentence: str) -> str:
     """Converts characters to their original representation in a sentence."""
     sentence = convert_to_unicode(sentence)
     sentence = re.sub(" -LSB-.*?-RSB-", " ", sentence)
@@ -215,7 +236,8 @@ def process_sentence(sentence):
     return sentence
 
 
-def split_into_passages_by_word(text, passage_length=256):
+def split_into_passages_by_word(text: str, passage_length=256) -> List[str]:
+    """Splits a text into passages based on a specified number of words."""
     words = text.split()
     passages = [' '.join(words[i:i + passage_length]) for i in range(0, len(words), passage_length)]
     return passages
@@ -223,7 +245,10 @@ def split_into_passages_by_word(text, passage_length=256):
 
 def remove_duplicate_values(d: Dict):
     """
-    Remove duplicate values from the dictionary, keeping only the first occurrence of each value.
+    Removes duplicate values from a dictionary, keeping only the first occurrence of each value.
+
+    :param d: The input dictionary.
+    :return: A dictionary without duplicate values.
     """
     seen_values = set()
     unique_dict = {}
@@ -240,7 +265,14 @@ def remove_duplicate_values(d: Dict):
     return unique_dict
 
 
-def parse_model_answer(generated_answer: str, language='en'):
+def parse_model_answer(generated_answer: str, language='en') -> str:
+    """
+    Parses a model's answer to determine if it supports a claim.
+
+    :param generated_answer: The answer generated by the model.
+    :param language: The language of the input (default: 'en').
+    :return: 'SUPPORTED' or 'NOT_SUPPORTED' based on the model's answer.
+    """
     true_token = 'wahr' if language == 'de' else 'true'
     false_token = 'falsch' if language == 'de' else 'false'
 
@@ -257,13 +289,21 @@ def parse_model_answer(generated_answer: str, language='en'):
         unsupported_keywords = (["nicht", "kann nicht", "unbekannt", "informationen"]
                                 if language == 'de'
                                 else ["not", "cannot", "unknown", "information"])
-        is_supported = all([keyword not in generated_answer.translate(
+        is_supported = all(keyword not in generated_answer.translate(
             str.maketrans("", "", string.punctuation)).split() for keyword in
-                            unsupported_keywords])
+                            unsupported_keywords)
     return 'SUPPORTED' if is_supported else 'NOT_SUPPORTED'
 
 
-def get_openai_prediction_log_probs(response, batched=True):
+def get_openai_prediction_log_probs(response, batched=True) -> Tuple[float, float] | str:
+    """
+    Extracts and returns the log probabilities for 'true' and 'false' tokens from an OpenAI
+    response.
+
+    :param response: The OpenAI API response.
+    :param batched: Whether the response is batched.
+    :return: Log probabilities for 'true' and 'false' tokens. Else 'UNKNOWN'.
+    """
     if not batched:
         response = response.to_dict()
 
@@ -285,7 +325,14 @@ def get_openai_prediction_log_probs(response, batched=True):
     return 'UNKNOWN'
 
 
-def get_openai_prediction(response):
+def get_openai_prediction(response) -> str:
+    """
+    Determines the model's prediction based on log probabilities for 'true' and 'false' tokens.
+
+    :param response: The OpenAI API response.
+    :return: 'SUPPORTED' or 'NOT_SUPPORTED' based on the log probabilities, or 'UNKNOWN' if
+    not determinable.
+    """
     prediction = get_openai_prediction_log_probs(response)
     if prediction == 'UNKNOWN':
         return prediction
@@ -297,14 +344,22 @@ def get_openai_prediction(response):
     return 'UNKNOWN'
 
 
-def split_into_passages(text, tokenizer, max_lenght=256):
-    if type(text) == str:
+def split_into_passages(text: str, tokenizer, max_length=256) -> List[str]:
+    """
+    Splits text into passages of a specified token length using a tokenizer.
+
+    :param text: The input text or list of texts.
+    :param tokenizer: A tokenizer to tokenize the input text.
+    :param max_length: The maximum length of each passage in tokens.
+    :return: A list of text passages.
+    """
+    if isinstance(text, str):
         text = [text]
     passages = [[]]
-    for sent_idx, sent in enumerate(text):
+    for sent in text:
         assert len(sent.strip()) > 0
         tokens = tokenizer(sent)["input_ids"]
-        max_length = max_lenght - len(passages[-1])
+        max_length = max_length - len(passages[-1])
         if len(tokens) <= max_length:
             passages[-1].extend(tokens)
         else:
@@ -312,14 +367,23 @@ def split_into_passages(text, tokenizer, max_lenght=256):
             offset = max_length
             while offset < len(tokens):
                 passages.append(tokens[offset:offset + max_length])
-                offset += max_lenght
+                offset += max_length
 
     psgs = [tokenizer.decode(tokens) for tokens in passages if
             np.sum([t not in [0, 2] for t in tokens]) > 0]
     return psgs
 
 
-def print_classification_report(report, not_in_wiki=None, avg_claim_count=None):
+def print_classification_report(report: str,
+                                not_in_wiki: int = None,
+                                avg_claim_count: float = None):
+    """
+    Prints a formatted classification report along with additional statistics.
+
+    :param report: The classification report to print.
+    :param not_in_wiki: Optional statistic for claims not found in Wikipedia.
+    :param avg_claim_count: Optional statistic for the average number of claims.
+    """
     print('################################')
     if not_in_wiki:
         print(f'Not in wikipedia: {not_in_wiki}')
@@ -329,7 +393,13 @@ def print_classification_report(report, not_in_wiki=None, avg_claim_count=None):
     print('################################')
 
 
-def print_fever_classification_report(report, fever_report):
+def print_fever_classification_report(report: str, fever_report: Dict):
+    """
+    Prints a FEVER classification report with FeverScore and gold label information.
+
+    :param report: The classification report.
+    :param fever_report: The FEVER report containing FeverScore and gold label.
+    """
     print('################################')
     print(f'FeverScore: {fever_report.get("strict_score")}')
     print(f'Gold Label: {fever_report.get("gold_label")}')
