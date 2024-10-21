@@ -344,7 +344,7 @@ def get_openai_prediction(response) -> str:
     return 'UNKNOWN'
 
 
-def split_into_passages(text: str, tokenizer, max_length=256) -> List[str]:
+def split_into_passages(text: str | List[str], tokenizer, max_length=256) -> List[str]:
     """
     Splits text into passages of a specified token length using a tokenizer.
 

@@ -10,3 +10,7 @@ HF_WRITE_TOKEN = ''
 HF_READ_TOKENS = ['', '', '']
 
 OPEN_AI_TOKEN = ''
+
+# please follow https://foundation.wikimedia.org/wiki/Policy:User-Agent_policy
+# e.g.: evaluating-factuality-word-definitions-bot (<your email>)
+WIKI_USER_AGENT = ''

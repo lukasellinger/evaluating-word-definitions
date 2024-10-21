@@ -8,6 +8,7 @@ from datasets import load_dataset
 from requests import Response
 from transformers import RobertaTokenizer
 
+from config import WIKI_USER_AGENT
 from fetchers.wiktionary_parser import WiktionaryParser
 from general_utils.spacy_utils import (split_into_passage_sentences,
                                        split_into_sentences)
@@ -18,7 +19,7 @@ from general_utils.utils import (generate_case_combinations,
 class Wikipedia:
     """Wrapper for wikipedia api calls."""
 
-    USER_AGENT = 'summaryBot (lu.ellinger@gmx.de)'
+    USER_AGENT = WIKI_USER_AGENT
     BASE_URL = "https://{source_lang}.{site}.org/w/api.php"
 
     def __init__(self, source_lang: str = 'en', user_agent: str = None, use_dataset: str = ''):
