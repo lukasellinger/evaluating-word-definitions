@@ -1,9 +1,9 @@
 from typing import List
 
 from fastapi import APIRouter, HTTPException, WebSocket
-from pydantic_models import VerificationRequest, VerificationResponse, Dataset, Example
-from core import pipeline
-from core import datasets
+from api.pydantic_models import VerificationRequest, VerificationResponse, Dataset, Example
+from api.core import pipeline
+from api.core import datasets
 from starlette.websockets import WebSocketDisconnect
 import json
 

@@ -1,7 +1,7 @@
 from datasets import load_dataset
 
-from pydantic_models import Example
-from pipeline import ProgressPipeline
+from api.pydantic_models import Example
+from api.pipeline import ProgressPipeline
 from pipeline_module.evidence_selector import ModelEvidenceSelector
 from pipeline_module.statement_verifier import ModelStatementVerifier
 from pipeline_module.evidence_fetcher import WikipediaEvidenceFetcher
