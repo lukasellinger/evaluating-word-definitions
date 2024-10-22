@@ -31,7 +31,6 @@ class Wikipedia:
         if use_dataset:
             self.offline_backend = self._prepare_offline_backend(use_dataset)
         self.tokenizer = RobertaTokenizer.from_pretrained("roberta-large")
-        self.wiktionary_parser = WiktionaryParser()
 
     def _prepare_offline_backend(self, dataset) -> Dict:
         backend_dataset = pd.DataFrame(load_dataset(dataset).get('train'))
@@ -190,7 +189,7 @@ class Wikipedia:
             texts[key_base] = text
         elif key_base.endswith('(wiktionary)'):
             word = key_base.split(' (wik')[0]
-            sentences = self.wiktionary_parser.get_wiktionary_glosses(word, text)
+            sentences = WiktionaryParser().get_wiktionary_glosses(word, text)
             texts[key_base] = sentences[:sentence_limit]
         elif split_level == 'passage':
             passages = split_into_passages(split_into_sentences(text), self.tokenizer)

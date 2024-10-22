@@ -1,0 +1,9 @@
+wiki-pages/
+data/
+notebooks/
+scripts/
+training_loop_tests/
+graphics/
+database/
+.cache/
+.github/

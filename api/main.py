@@ -7,14 +7,15 @@ app = FastAPI()
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=["http://localhost",
+                   "https://lukasellinger.github.io"],
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
 
 # Include API routes
-app.include_router(api_router)
+app.include_router(api_router, prefix="/api")
 
 if __name__ == "__main__":
     import uvicorn

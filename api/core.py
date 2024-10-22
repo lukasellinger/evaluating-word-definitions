@@ -1,8 +1,8 @@
 from datasets import load_dataset
 
 from api.pydantic_models import Example
-from api.pipeline import ProgressPipeline
 from pipeline_module.evidence_selector import ModelEvidenceSelector
+from pipeline_module.pipeline import ProgressPipeline
 from pipeline_module.statement_verifier import ModelStatementVerifier
 from pipeline_module.evidence_fetcher import WikipediaEvidenceFetcher
 from pipeline_module.sentence_connector import ColonSentenceConnector
@@ -57,13 +57,18 @@ datasets = [
     # }
 ]
 
+evid_selector = ModelEvidenceSelector()
+evid_selector.load_model()
+stm_verifier= ModelStatementVerifier()
+stm_verifier.load_model()
+
 # Initialize the pipeline instance
 pipeline = ProgressPipeline(
     OpusMTTranslator(),
     ColonSentenceConnector(),
     None,
     WikipediaEvidenceFetcher(offline=False),
-    ModelEvidenceSelector(),
-    ModelStatementVerifier(),
+    evid_selector,
+    stm_verifier,
     'de'
 )
