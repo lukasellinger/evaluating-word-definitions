@@ -11,7 +11,7 @@ class VerificationRequest(BaseModel):
 class VerificationResponse(BaseModel):
     word: str
     claim: str
-    predicted: int
+    predicted: str
     in_wiki: str
     selected_evidences: Optional[List[dict]] = None
 

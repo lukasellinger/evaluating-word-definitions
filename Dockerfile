@@ -16,11 +16,11 @@ ENV PATH="/home/run/.local/bin:${PATH}"
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
-# Run setup.py if necessary
-RUN python3 setup.py
-
 # Copy the rest of the application code
 COPY --chown=run:run . .
+
+# Run setup.py if necessary
+RUN python3 setup.py
 
 RUN rm config.py
 
