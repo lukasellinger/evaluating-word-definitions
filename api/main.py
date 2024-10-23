@@ -8,7 +8,9 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost",
-                   "https://lukasellinger.github.io"],
+                   "http://localhost:3000",
+                   "https://lukasellinger.github.io",
+                   "https://ai.ellinger-solutions.com"],
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers

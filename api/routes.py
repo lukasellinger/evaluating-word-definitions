@@ -31,6 +31,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 pipeline.set_progress_callback(progress_callback)
 
+                if lang := request.get('lang'):
+                    pipeline.lang = lang
+
                 result = await pipeline.verify(
                     request["word"],
                     request["claim"],
@@ -67,6 +70,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @router.post("/verify", response_model=VerificationResponse)
 async def verify_claim(request: VerificationRequest):
+    if request.lang:
+        pipeline.lang = request.lang
+
     try:
         result = await pipeline.verify(request.word, request.claim, request.search_word)
         return VerificationResponse(**result)

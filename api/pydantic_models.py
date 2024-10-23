@@ -6,6 +6,7 @@ class VerificationRequest(BaseModel):
     word: str
     claim: str
     search_word: Optional[str] = None
+    lang: Optional[str] = None
 
 
 class VerificationResponse(BaseModel):
