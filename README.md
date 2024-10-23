@@ -1,7 +1,9 @@
 # Evaluating the Factuality of Word Definitions with a Multilingual RAE-Pipeline
 ![Python Version](https://img.shields.io/badge/python-3.10-blue)<br>
 This repository contains the code and resources for evaluating the factual accuracy of word 
-definitions using our multilingual Retrieval-Augmented Evaluation Pipeline (RAE-Pipeline). 
+definitions using our multilingual Retrieval-Augmented Evaluation Pipeline (RAE-Pipeline).
+
+A live implementation of the evaluator is available [here](https://ai.ellngr.com).
 
 With the growing reliance on Large Language Models (LLMs) like OpenAI's GPT series, ensuring 
 the accuracy of generated content—especially word definitions—has become increasingly important. 
