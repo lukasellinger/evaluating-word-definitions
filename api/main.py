@@ -10,6 +10,9 @@ app.add_middleware(
     allow_origins=["http://localhost",
                    "http://localhost:3000",
                    "https://lukasellinger.github.io",
+                   "https://ai.ellngr.com",
+                   "https://ellngr.com",
+                   "https://ellinger-solutions.com",
                    "https://ai.ellinger-solutions.com"],
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
@@ -21,4 +24,5 @@ app.include_router(api_router, prefix="/api")
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
