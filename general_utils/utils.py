@@ -101,7 +101,7 @@ def build_fever_instance(label: str,
                          evidence: List,
                          evidence_doc: str,
                          predicted_label: str,
-                         predicted_evidence: Tuple) -> Dict:
+                         predicted_evidence: List[Tuple]) -> Dict:
     """Build instance to conform to fever scorer."""
     evidence = [
         [

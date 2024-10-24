@@ -439,7 +439,7 @@ class ProgressPipeline(Pipeline):
         if self.progress_callback:
             await self.progress_callback("Starting verification process")
 
-        if self.translator:
+        if self.translator and self.lang != 'en':
             if self.progress_callback:
                 await self.progress_callback("Translating input")
             translated = await asyncio.to_thread(self.translator, [{'word': word, 'text': claim}])
