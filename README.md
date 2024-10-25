@@ -9,7 +9,7 @@ With the growing reliance on Large Language Models (LLMs) like OpenAI's GPT seri
 the accuracy of generated content—especially word definitions—has become increasingly important. 
 Definitions are foundational to effective communication and learning, and inaccuracies can lead 
 to misunderstandings and misinformation. Our focus is on non-English languages, particularly German, 
-which are often underrepresented in fact-checking advancements. 
+which are often underrepresented in fact-checking advancements.
 
 ## 📑 Table of Contents
 - [⚙️ Setup](#-setup)
@@ -137,6 +137,7 @@ print(report) # Displays the classification report
 ## 📂 Repository Structure
 ```
 📁 evaluating-word-definitions/
+├── 📁 api/                               # FastApi used for our demo (not needed)
 ├── 📁 database/                          # Related to Sqlite DB (not needed)
 ├── 📁 dataset/                           # Datasets used for training
 ├── 📁 factscore/                         # Adapted FActScore repository
