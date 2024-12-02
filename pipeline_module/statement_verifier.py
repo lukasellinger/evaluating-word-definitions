@@ -153,7 +153,7 @@ class ModelEnsembleStatementVerifier(ModelStatementVerifier):
     def __init__(self, model_name: str = '', premise_sent_order: str = 'reverse'):
         super().__init__(model_name, premise_sent_order)
         self.classifier = pipeline("zero-shot-classification",
-                                   model="facebook/bart-large-mnli")
+                                   model="facebook/bart-large-mnli", device=self.device)
 
     def load_model(self):
         if self.model is None:
@@ -188,7 +188,7 @@ class ModelEnsembleStatementVerifier(ModelStatementVerifier):
                     # Get logits from the initial model
                     outputs = self.model(**model_inputs)
                     logits = outputs['logits']
-                    probabilities = torch.softmax(logits, dim=-1)
+                    probabilities = torch.softmax(logits, dim=-1).cpu()
                     maximums, _ = torch.max(probabilities, dim=-1)
 
                     predictions = torch.argmax(probabilities, dim=-1).tolist()
