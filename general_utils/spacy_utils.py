@@ -343,3 +343,15 @@ def is_german_def_question(question_sent: str) -> bool:
         else:
             return True
     return False
+
+
+def get_main_entity(txt: str, lang: str = 'en'):
+    doc = get_doc(txt, lang)
+
+    if doc.ents:
+        return doc.ents[0].text
+
+    for token in doc:
+        if token.dep_ in {"nsubj", "ROOT", "pobj", "dobj"} and token.pos_ == "NOUN":
+            return token.text
+    return None

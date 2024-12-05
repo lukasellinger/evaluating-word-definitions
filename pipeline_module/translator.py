@@ -52,6 +52,15 @@ class Translator(ABC):
         :return: The translated batch.
         """
 
+    @abstractmethod
+    def translate_claim_batch(self, batch: list[dict]) -> list[dict]:
+        """
+        Translates a batch of claims.
+
+        :param batch: A batch of dictionaries, each containing 'text'.
+        :return: The translated batch as a list of dictionaries.
+        """
+
 
 class OpusMTTranslator(Translator):
     """Helsinki-NLP/opus-mt Translator"""
@@ -112,6 +121,10 @@ class OpusMTTranslator(Translator):
                                         {'word': translated_word[0], 'text': translated_text[0]})
 
         return translated_batch
+
+    def translate_claim_batch(self, batch: list[dict]) -> list[dict]:
+        batch_translations = self.translate_batch([f"{entry.get('text')}" for entry in batch], num_translations=1)
+        return [{'text': translation[0]} for translation in batch_translations]
 
     def translate_text(self, text: str) -> str:
         return self.translate_batch([text], num_translations=1)[0][0]
